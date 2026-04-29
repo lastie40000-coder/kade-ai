@@ -77,10 +77,10 @@ export default function Bots() {
 
   return (
     <DashboardLayout>
-      <div className="flex items-end justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-ink-soft">Bots</div>
-          <h1 className="font-display text-4xl text-ink mt-2">Your bots</h1>
+          <h1 className="font-display text-3xl sm:text-4xl text-ink mt-2">Your bots</h1>
         </div>
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
@@ -122,19 +122,19 @@ export default function Bots() {
       ) : (
         <div className="grid gap-4">
           {bots.map((b) => (
-            <div key={b.id} className="border border-border rounded-lg p-5 bg-card flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
+            <div key={b.id} className="border border-border rounded-lg p-4 sm:p-5 bg-card flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                   <h3 className="font-display text-xl text-ink">{b.name}</h3>
                   <Badge variant={b.status === "active" ? "default" : "secondary"} className="capitalize">{b.status}</Badge>
                 </div>
-                {b.description && <p className="text-sm text-ink-soft mt-1">{b.description}</p>}
-                <div className="text-xs text-ink-soft mt-3 flex gap-4">
+                {b.description && <p className="text-sm text-ink-soft mt-1 break-words">{b.description}</p>}
+                <div className="text-xs text-ink-soft mt-3 flex flex-wrap gap-x-4 gap-y-1">
                   <span>Token: {b.telegram_bot_token ? "✓ set" : "— missing"}</span>
                   <span>OpenAI: {b.openai_api_key ? "✓ set" : "— missing"}</span>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button variant="outline" size="sm" onClick={() => toggleStatus(b)}>{b.status === "active" ? "Pause" : "Activate"}</Button>
                 <Button variant="ghost" size="icon" onClick={() => startEdit(b)}><Edit3 className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>

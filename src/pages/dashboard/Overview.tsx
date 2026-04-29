@@ -36,7 +36,7 @@ export default function DashboardHome() {
     <DashboardLayout>
       <div className="mb-10">
         <div className="text-xs uppercase tracking-[0.18em] text-ink-soft">Workspace</div>
-        <h1 className="font-display text-4xl text-ink mt-2">Welcome back.</h1>
+        <h1 className="font-display text-3xl sm:text-4xl text-ink mt-2">Welcome back.</h1>
         <p className="text-ink-soft mt-2">
           You're on the <span className="text-ink font-medium capitalize">{plan}</span> plan.{" "}
           <Link to="/dashboard/billing" className="text-primary hover:underline">Manage billing →</Link>
