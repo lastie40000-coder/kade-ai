@@ -121,6 +121,7 @@ export type Database = {
           owner_id: string
           status: Database["public"]["Enums"]["bot_status"]
           telegram_bot_token: string | null
+          update_offset: number
           updated_at: string
         }
         Insert: {
@@ -133,6 +134,7 @@ export type Database = {
           owner_id: string
           status?: Database["public"]["Enums"]["bot_status"]
           telegram_bot_token?: string | null
+          update_offset?: number
           updated_at?: string
         }
         Update: {
@@ -145,6 +147,7 @@ export type Database = {
           owner_id?: string
           status?: Database["public"]["Enums"]["bot_status"]
           telegram_bot_token?: string | null
+          update_offset?: number
           updated_at?: string
         }
         Relationships: []
