@@ -27,7 +27,7 @@ export default function AdminDashboard() {
         <Shield className="h-6 w-6 text-primary" />
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-primary">Owner admin</div>
-          <h1 className="font-display text-4xl text-ink mt-1">Control room</h1>
+          <h1 className="font-display text-3xl sm:text-4xl text-ink mt-1">Control room</h1>
         </div>
       </div>
 

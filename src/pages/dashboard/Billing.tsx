@@ -32,11 +32,11 @@ export default function Billing() {
     <DashboardLayout>
       <div className="mb-8">
         <div className="text-xs uppercase tracking-[0.18em] text-ink-soft">Billing</div>
-        <h1 className="font-display text-4xl text-ink mt-2">Plan & billing</h1>
+        <h1 className="font-display text-3xl sm:text-4xl text-ink mt-2">Plan & billing</h1>
       </div>
 
       <div className="border border-border rounded-lg bg-card p-8 max-w-2xl">
-        <div className="flex items-end justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-widest text-ink-soft">Current plan</div>
             <div className="font-display text-3xl text-ink mt-1 capitalize">{sub?.plan ?? "free"}</div>

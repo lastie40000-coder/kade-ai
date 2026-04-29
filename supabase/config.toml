@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.stripe-portal]
 verify_jwt = true
+
+[functions.telegram-poll]
+verify_jwt = false
