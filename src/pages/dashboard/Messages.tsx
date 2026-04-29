@@ -24,7 +24,7 @@ export default function Messages() {
     <DashboardLayout>
       <div className="mb-8">
         <div className="text-xs uppercase tracking-[0.18em] text-ink-soft">Messages</div>
-        <h1 className="font-display text-4xl text-ink mt-2">The desk</h1>
+        <h1 className="font-display text-3xl sm:text-4xl text-ink mt-2">The desk</h1>
         <p className="text-ink-soft mt-2">Live log of what KADE sees and sends. Newest first.</p>
       </div>
 

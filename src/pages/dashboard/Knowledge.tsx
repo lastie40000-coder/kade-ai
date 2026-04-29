@@ -43,10 +43,10 @@ export default function Knowledge() {
 
   return (
     <DashboardLayout>
-      <div className="flex items-end justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-ink-soft">Knowledge</div>
-          <h1 className="font-display text-4xl text-ink mt-2">What KADE can read</h1>
+          <h1 className="font-display text-3xl sm:text-4xl text-ink mt-2">What KADE can read</h1>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button variant="editorial" disabled={bots.length === 0}><Plus className="h-4 w-4" /> Add source</Button></DialogTrigger>

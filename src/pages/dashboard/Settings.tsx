@@ -31,7 +31,7 @@ export default function Settings() {
     <DashboardLayout>
       <div className="mb-8">
         <div className="text-xs uppercase tracking-[0.18em] text-ink-soft">Settings</div>
-        <h1 className="font-display text-4xl text-ink mt-2">Your profile</h1>
+        <h1 className="font-display text-3xl sm:text-4xl text-ink mt-2">Your profile</h1>
       </div>
       <div className="border border-border rounded-lg bg-card p-6 max-w-lg space-y-4">
         <div><Label>Email</Label><Input value={user?.email ?? ""} disabled /></div>
