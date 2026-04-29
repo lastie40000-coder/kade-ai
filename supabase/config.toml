@@ -1,0 +1,7 @@
+project_id = "pyseodaurcbggatqswtw"
+
+[functions.stripe-checkout]
+verify_jwt = true
+
+[functions.stripe-portal]
+verify_jwt = true
