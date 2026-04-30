@@ -200,6 +200,8 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          telegram_user_id: number | null
+          telegram_username: string | null
           updated_at: string
         }
         Insert: {
@@ -208,6 +210,8 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id: string
+          telegram_user_id?: number | null
+          telegram_username?: string | null
           updated_at?: string
         }
         Update: {
@@ -216,6 +220,8 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          telegram_user_id?: number | null
+          telegram_username?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -253,6 +259,24 @@ export type Database = {
           stripe_subscription_id?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      system_bot_state: {
+        Row: {
+          id: number
+          update_offset: number
+          updated_at: string
+        }
+        Insert: {
+          id: number
+          update_offset?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          update_offset?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -299,6 +323,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      telegram_link_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
