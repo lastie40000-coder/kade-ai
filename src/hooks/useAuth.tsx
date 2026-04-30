@@ -22,12 +22,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<Role[]>([]);
 
   useEffect(() => {
-    // Listener first
+    let mounted = true;
+
+    // Listener first — also clears loading so we never get stuck
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (!mounted) return;
       setSession(s);
       setUser(s?.user ?? null);
+      setLoading(false);
       if (s?.user) {
-        // Defer extra calls
         setTimeout(() => loadRoles(s.user.id), 0);
       } else {
         setRoles([]);
@@ -35,13 +38,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     supabase.auth.getSession().then(({ data: { session: s } }) => {
+      if (!mounted) return;
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) loadRoles(s.user.id);
       setLoading(false);
-    });
+    }).catch(() => { if (mounted) setLoading(false); });
 
-    return () => sub.subscription.unsubscribe();
+    // Hard safety net: never let loading hang past 4s
+    const safety = setTimeout(() => { if (mounted) setLoading(false); }, 4000);
+
+    return () => {
+      mounted = false;
+      clearTimeout(safety);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const loadRoles = async (uid: string) => {
