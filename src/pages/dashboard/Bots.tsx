@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 type Bot = {
   id: string; name: string; description: string | null; status: "active" | "paused" | "stopped";
-  telegram_bot_token: string | null; openai_api_key: string | null; default_instructions: string | null;
+  telegram_bot_token: string | null; default_instructions: string | null;
 };
 
 export default function Bots() {
@@ -21,7 +21,7 @@ export default function Bots() {
   const [bots, setBots] = useState<Bot[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Bot | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", telegram_bot_token: "", openai_api_key: "", default_instructions: "" });
+  const [form, setForm] = useState({ name: "", description: "", telegram_bot_token: "", default_instructions: "" });
 
   const load = async () => {
     if (!user) return;
@@ -32,7 +32,7 @@ export default function Bots() {
   useEffect(() => { load(); }, [user]);
 
   const reset = () => {
-    setForm({ name: "", description: "", telegram_bot_token: "", openai_api_key: "", default_instructions: "" });
+    setForm({ name: "", description: "", telegram_bot_token: "", default_instructions: "" });
     setEditing(null);
   };
 
@@ -44,9 +44,10 @@ export default function Bots() {
       if (error) return toast.error(error.message);
       toast.success("Bot updated");
     } else {
-      const { error } = await supabase.from("bots").insert({ ...form, owner_id: user.id });
+      // New bots default to active so they reply right away
+      const { error } = await supabase.from("bots").insert({ ...form, owner_id: user.id, status: "active" });
       if (error) return toast.error(error.message);
-      toast.success("Bot created");
+      toast.success("Bot created and activated");
     }
     setOpen(false); reset(); load();
   };
@@ -69,7 +70,7 @@ export default function Bots() {
     setEditing(b);
     setForm({
       name: b.name, description: b.description ?? "",
-      telegram_bot_token: b.telegram_bot_token ?? "", openai_api_key: b.openai_api_key ?? "",
+      telegram_bot_token: b.telegram_bot_token ?? "",
       default_instructions: b.default_instructions ?? "",
     });
     setOpen(true);
@@ -81,6 +82,7 @@ export default function Bots() {
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-ink-soft">Bots</div>
           <h1 className="font-display text-3xl sm:text-4xl text-ink mt-2">Your bots</h1>
+          <p className="text-sm text-ink-soft mt-2">Replies are powered by KADE's shared AI — no API key needed.</p>
         </div>
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
@@ -95,11 +97,6 @@ export default function Bots() {
                 <Label>Telegram Bot Token</Label>
                 <Input value={form.telegram_bot_token} onChange={(e) => setForm({ ...form, telegram_bot_token: e.target.value })} placeholder="123456:ABC-DEF…" />
                 <p className="text-xs text-ink-soft mt-1">Get one from @BotFather on Telegram.</p>
-              </div>
-              <div>
-                <Label>OpenAI API Key</Label>
-                <Input type="password" value={form.openai_api_key} onChange={(e) => setForm({ ...form, openai_api_key: e.target.value })} placeholder="sk-…" />
-                <p className="text-xs text-ink-soft mt-1">Used for this bot's smart replies. Stored server-side, only you can read it.</p>
               </div>
               <div>
                 <Label>Default instructions</Label>
@@ -131,7 +128,7 @@ export default function Bots() {
                 {b.description && <p className="text-sm text-ink-soft mt-1 break-words">{b.description}</p>}
                 <div className="text-xs text-ink-soft mt-3 flex flex-wrap gap-x-4 gap-y-1">
                   <span>Token: {b.telegram_bot_token ? "✓ set" : "— missing"}</span>
-                  <span>OpenAI: {b.openai_api_key ? "✓ set" : "— missing"}</span>
+                  <span>AI: 🟢 Lovable AI Gateway</span>
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
