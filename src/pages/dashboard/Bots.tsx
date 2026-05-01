@@ -7,32 +7,45 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Bot as BotIcon, Trash2, Edit3 } from "lucide-react";
 import { toast } from "sonner";
 
 type Bot = {
-  id: string; name: string; description: string | null; status: "active" | "paused" | "stopped";
-  telegram_bot_token: string | null; default_instructions: string | null;
+  id: string; name: string; description: string | null;
+  status: "active" | "paused" | "stopped";
+  telegram_bot_token: string | null;
+  default_instructions: string | null;
+  tone: string | null;
+  personality: string | null;
+  house_rules: string | null;
+  welcome_message: string | null;
+  bot_username: string | null;
 };
+
+const TONES = ["friendly", "professional", "witty", "strict", "hype"];
 
 export default function Bots() {
   const { user } = useAuth();
   const [bots, setBots] = useState<Bot[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Bot | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", telegram_bot_token: "", default_instructions: "" });
+  const [form, setForm] = useState({
+    name: "", description: "", telegram_bot_token: "",
+    tone: "friendly", personality: "", house_rules: "", welcome_message: "",
+    default_instructions: "",
+  });
 
   const load = async () => {
     if (!user) return;
     const { data } = await supabase.from("bots").select("*").eq("owner_id", user.id).order("created_at", { ascending: false });
     setBots(data ?? []);
   };
-
   useEffect(() => { load(); }, [user]);
 
   const reset = () => {
-    setForm({ name: "", description: "", telegram_bot_token: "", default_instructions: "" });
+    setForm({ name: "", description: "", telegram_bot_token: "", tone: "friendly", personality: "", house_rules: "", welcome_message: "", default_instructions: "" });
     setEditing(null);
   };
 
@@ -44,7 +57,6 @@ export default function Bots() {
       if (error) return toast.error(error.message);
       toast.success("Bot updated");
     } else {
-      // New bots default to active so they reply right away
       const { error } = await supabase.from("bots").insert({ ...form, owner_id: user.id, status: "active" });
       if (error) return toast.error(error.message);
       toast.success("Bot created and activated");
@@ -61,8 +73,7 @@ export default function Bots() {
 
   const toggleStatus = async (b: Bot) => {
     const next = b.status === "active" ? "paused" : "active";
-    const { error } = await supabase.from("bots").update({ status: next }).eq("id", b.id);
-    if (error) return toast.error(error.message);
+    await supabase.from("bots").update({ status: next }).eq("id", b.id);
     load();
   };
 
@@ -71,6 +82,10 @@ export default function Bots() {
     setForm({
       name: b.name, description: b.description ?? "",
       telegram_bot_token: b.telegram_bot_token ?? "",
+      tone: b.tone ?? "friendly",
+      personality: b.personality ?? "",
+      house_rules: b.house_rules ?? "",
+      welcome_message: b.welcome_message ?? "",
       default_instructions: b.default_instructions ?? "",
     });
     setOpen(true);
@@ -82,25 +97,44 @@ export default function Bots() {
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-ink-soft">Bots</div>
           <h1 className="font-display text-3xl sm:text-4xl text-ink mt-2">Your bots</h1>
-          <p className="text-sm text-ink-soft mt-2">Replies are powered by KADE's shared AI — no API key needed.</p>
+          <p className="text-sm text-ink-soft mt-2">Powered by KADE's shared AI. Configure tone &amp; rules here, or DM your bot with /help.</p>
         </div>
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
             <Button variant="editorial"><Plus className="h-4 w-4" /> New bot</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle className="font-display">{editing ? "Edit bot" : "Create a bot"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={80} /></div>
-              <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={500} rows={2} /></div>
+              <div><Label>Short description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={500} rows={2} /></div>
               <div>
                 <Label>Telegram Bot Token</Label>
                 <Input value={form.telegram_bot_token} onChange={(e) => setForm({ ...form, telegram_bot_token: e.target.value })} placeholder="123456:ABC-DEF…" />
-                <p className="text-xs text-ink-soft mt-1">Get one from @BotFather on Telegram.</p>
+                <p className="text-xs text-ink-soft mt-1">From @BotFather on Telegram.</p>
               </div>
               <div>
-                <Label>Default instructions</Label>
-                <Textarea value={form.default_instructions} onChange={(e) => setForm({ ...form, default_instructions: e.target.value })} rows={4} placeholder="You are KADE for Acme Co. Be warm, concise, and cite sources when you can." maxLength={2000} />
+                <Label>Tone</Label>
+                <Select value={form.tone} onValueChange={(v) => setForm({ ...form, tone: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{TONES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Personality (one line)</Label>
+                <Input value={form.personality} onChange={(e) => setForm({ ...form, personality: e.target.value })} maxLength={500} placeholder="Sassy librarian who loves indie rock" />
+              </div>
+              <div>
+                <Label>House rules</Label>
+                <Textarea value={form.house_rules} onChange={(e) => setForm({ ...form, house_rules: e.target.value })} rows={3} maxLength={2000} placeholder="Be kind. No spam. English only." />
+              </div>
+              <div>
+                <Label>Welcome message (use {"{name}"} for new member)</Label>
+                <Textarea value={form.welcome_message} onChange={(e) => setForm({ ...form, welcome_message: e.target.value })} rows={2} maxLength={1000} placeholder="Hey {name}, welcome to the group!" />
+              </div>
+              <div>
+                <Label>Extra instructions (optional)</Label>
+                <Textarea value={form.default_instructions} onChange={(e) => setForm({ ...form, default_instructions: e.target.value })} rows={3} maxLength={2000} />
               </div>
             </div>
             <DialogFooter>
@@ -124,12 +158,19 @@ export default function Bots() {
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                   <h3 className="font-display text-xl text-ink">{b.name}</h3>
                   <Badge variant={b.status === "active" ? "default" : "secondary"} className="capitalize">{b.status}</Badge>
+                  <Badge variant="outline" className="capitalize text-xs">{b.tone || "friendly"}</Badge>
                 </div>
                 {b.description && <p className="text-sm text-ink-soft mt-1 break-words">{b.description}</p>}
                 <div className="text-xs text-ink-soft mt-3 flex flex-wrap gap-x-4 gap-y-1">
                   <span>Token: {b.telegram_bot_token ? "✓ set" : "— missing"}</span>
-                  <span>AI: 🟢 Lovable AI Gateway</span>
+                  {b.bot_username && <span>@{b.bot_username}</span>}
+                  <span>AI: 🟢 Lovable AI</span>
                 </div>
+                {b.bot_username && (
+                  <p className="text-xs text-primary mt-2">
+                    Owner tip: DM <a className="underline" target="_blank" rel="noreferrer" href={`https://t.me/${b.bot_username}`}>@{b.bot_username}</a> with <code>/help</code> to configure from Telegram.
+                  </p>
+                )}
               </div>
               <div className="flex gap-2 flex-wrap">
                 <Button variant="outline" size="sm" onClick={() => toggleStatus(b)}>{b.status === "active" ? "Pause" : "Activate"}</Button>

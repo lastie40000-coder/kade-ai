@@ -112,52 +112,120 @@ export type Database = {
       }
       bots: {
         Row: {
+          banned_words: string[] | null
+          bot_telegram_id: number | null
+          bot_username: string | null
           created_at: string
           default_instructions: string | null
           description: string | null
+          house_rules: string | null
           id: string
+          moderation_enabled: boolean
           name: string
           openai_api_key: string | null
           owner_id: string
+          personality: string | null
           status: Database["public"]["Enums"]["bot_status"]
           telegram_bot_token: string | null
+          tone: string | null
           update_offset: number
           updated_at: string
+          welcome_message: string | null
         }
         Insert: {
+          banned_words?: string[] | null
+          bot_telegram_id?: number | null
+          bot_username?: string | null
           created_at?: string
           default_instructions?: string | null
           description?: string | null
+          house_rules?: string | null
           id?: string
+          moderation_enabled?: boolean
           name: string
           openai_api_key?: string | null
           owner_id: string
+          personality?: string | null
           status?: Database["public"]["Enums"]["bot_status"]
           telegram_bot_token?: string | null
+          tone?: string | null
           update_offset?: number
           updated_at?: string
+          welcome_message?: string | null
         }
         Update: {
+          banned_words?: string[] | null
+          bot_telegram_id?: number | null
+          bot_username?: string | null
           created_at?: string
           default_instructions?: string | null
           description?: string | null
+          house_rules?: string | null
           id?: string
+          moderation_enabled?: boolean
           name?: string
           openai_api_key?: string | null
           owner_id?: string
+          personality?: string | null
           status?: Database["public"]["Enums"]["bot_status"]
           telegram_bot_token?: string | null
+          tone?: string | null
           update_offset?: number
           updated_at?: string
+          welcome_message?: string | null
         }
         Relationships: []
+      }
+      knowledge_chunks: {
+        Row: {
+          bot_id: string
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          owner_id: string
+          source_id: string
+        }
+        Insert: {
+          bot_id: string
+          chunk_index: number
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          owner_id: string
+          source_id: string
+        }
+        Update: {
+          bot_id?: string
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          owner_id?: string
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       knowledge_sources: {
         Row: {
           bot_id: string
+          chunk_count: number
           content: string | null
           created_at: string
           id: string
+          indexed_at: string | null
+          indexing_error: string | null
           kind: Database["public"]["Enums"]["knowledge_kind"]
           owner_id: string
           source_url: string | null
@@ -165,9 +233,12 @@ export type Database = {
         }
         Insert: {
           bot_id: string
+          chunk_count?: number
           content?: string | null
           created_at?: string
           id?: string
+          indexed_at?: string | null
+          indexing_error?: string | null
           kind: Database["public"]["Enums"]["knowledge_kind"]
           owner_id: string
           source_url?: string | null
@@ -175,9 +246,12 @@ export type Database = {
         }
         Update: {
           bot_id?: string
+          chunk_count?: number
           content?: string | null
           created_at?: string
           id?: string
+          indexed_at?: string | null
+          indexing_error?: string | null
           kind?: Database["public"]["Enums"]["knowledge_kind"]
           owner_id?: string
           source_url?: string | null
@@ -193,6 +267,51 @@ export type Database = {
           },
         ]
       }
+      moderation_actions: {
+        Row: {
+          action: string
+          bot_id: string
+          created_at: string
+          details: Json | null
+          group_chat_id: string | null
+          id: string
+          owner_id: string
+          performed_by: string | null
+          reason: string | null
+          success: boolean
+          target_user: string | null
+          target_user_id: number | null
+        }
+        Insert: {
+          action: string
+          bot_id: string
+          created_at?: string
+          details?: Json | null
+          group_chat_id?: string | null
+          id?: string
+          owner_id: string
+          performed_by?: string | null
+          reason?: string | null
+          success?: boolean
+          target_user?: string | null
+          target_user_id?: number | null
+        }
+        Update: {
+          action?: string
+          bot_id?: string
+          created_at?: string
+          details?: Json | null
+          group_chat_id?: string | null
+          id?: string
+          owner_id?: string
+          performed_by?: string | null
+          reason?: string | null
+          success?: boolean
+          target_user?: string | null
+          target_user_id?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -200,6 +319,8 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          telegram_first_name: string | null
+          telegram_photo_url: string | null
           telegram_user_id: number | null
           telegram_username: string | null
           updated_at: string
@@ -210,6 +331,8 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id: string
+          telegram_first_name?: string | null
+          telegram_photo_url?: string | null
           telegram_user_id?: number | null
           telegram_username?: string | null
           updated_at?: string
@@ -220,6 +343,8 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          telegram_first_name?: string | null
+          telegram_photo_url?: string | null
           telegram_user_id?: number | null
           telegram_username?: string | null
           updated_at?: string
@@ -282,37 +407,55 @@ export type Database = {
       }
       telegram_groups: {
         Row: {
+          banned_words: string[] | null
           bot_id: string
           created_at: string
           id: string
           is_active: boolean
+          is_auto: boolean
+          last_seen_at: string | null
+          member_count: number | null
+          moderation_enabled: boolean
           name: string
           owner_id: string
           rules: string | null
           telegram_chat_id: string | null
           updated_at: string
+          welcome_message: string | null
         }
         Insert: {
+          banned_words?: string[] | null
           bot_id: string
           created_at?: string
           id?: string
           is_active?: boolean
+          is_auto?: boolean
+          last_seen_at?: string | null
+          member_count?: number | null
+          moderation_enabled?: boolean
           name: string
           owner_id: string
           rules?: string | null
           telegram_chat_id?: string | null
           updated_at?: string
+          welcome_message?: string | null
         }
         Update: {
+          banned_words?: string[] | null
           bot_id?: string
           created_at?: string
           id?: string
           is_active?: boolean
+          is_auto?: boolean
+          last_seen_at?: string | null
+          member_count?: number | null
+          moderation_enabled?: boolean
           name?: string
           owner_id?: string
           rules?: string | null
           telegram_chat_id?: string | null
           updated_at?: string
+          welcome_message?: string | null
         }
         Relationships: [
           {
@@ -380,6 +523,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      match_knowledge_chunks: {
+        Args: { _bot_id: string; _match_count?: number; _query: string }
+        Returns: {
+          content: string
+          id: string
+          similarity: number
+          source_id: string
+        }[]
       }
     }
     Enums: {
