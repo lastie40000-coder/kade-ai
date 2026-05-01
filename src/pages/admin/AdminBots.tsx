@@ -9,13 +9,8 @@ import { toast } from "sonner";
 export default function AdminBots() {
   const [bots, setBots] = useState<any[]>([]);
   const load = async () => {
-    const { data } = await supabase.from("bots").select("*, profiles!bots_owner_id_fkey(email,display_name)").order("created_at", { ascending: false });
-    // The FK doesn't exist on owner_id; fallback: fetch separately.
-    if (!data) {
-      const { data: b } = await supabase.from("bots").select("*").order("created_at", { ascending: false });
-      setBots(b ?? []); return;
-    }
-    setBots(data);
+    const { data } = await supabase.from("bots").select("*").order("created_at", { ascending: false });
+    setBots(data ?? []);
   };
   useEffect(() => { load(); }, []);
 
