@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, BookOpen, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, BookOpen, Trash2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Knowledge() {
@@ -16,6 +17,7 @@ export default function Knowledge() {
   const [bots, setBots] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const [form, setForm] = useState({ bot_id: "", kind: "url" as "url" | "text", title: "", content: "", source_url: "" });
 
   const load = async () => {
@@ -28,12 +30,23 @@ export default function Knowledge() {
   };
   useEffect(() => { load(); }, [user]);
 
+  const reindex = async (source_id: string) => {
+    setBusy(source_id);
+    const { error } = await supabase.functions.invoke("index-knowledge", { body: { source_id } });
+    setBusy(null);
+    if (error) return toast.error(error.message);
+    toast.success("Indexed"); load();
+  };
+
   const save = async () => {
     if (!user || !form.bot_id || !form.title.trim()) return toast.error("Bot and title required");
-    const { error } = await supabase.from("knowledge_sources").insert({ ...form, owner_id: user.id });
+    const { data, error } = await supabase.from("knowledge_sources").insert({ ...form, owner_id: user.id }).select("id").single();
     if (error) return toast.error(error.message);
-    toast.success("Source added"); setOpen(false);
-    setForm({ bot_id: "", kind: "url", title: "", content: "", source_url: "" }); load();
+    toast.success("Source added — indexing…");
+    setOpen(false);
+    setForm({ bot_id: "", kind: "url", title: "", content: "", source_url: "" });
+    if (data?.id) supabase.functions.invoke("index-knowledge", { body: { source_id: data.id } }).then(() => load());
+    load();
   };
 
   const remove = async (id: string) => {
@@ -47,6 +60,7 @@ export default function Knowledge() {
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-ink-soft">Knowledge</div>
           <h1 className="font-display text-3xl sm:text-4xl text-ink mt-2">What KADE can read</h1>
+          <p className="text-sm text-ink-soft mt-2">Add URLs or paste text. Each source is chunked and embedded so the bot retrieves only what's relevant.</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button variant="editorial" disabled={bots.length === 0}><Plus className="h-4 w-4" /> Add source</Button></DialogTrigger>
@@ -64,20 +78,17 @@ export default function Knowledge() {
                 <Label>Type</Label>
                 <Select value={form.kind} onValueChange={(v: any) => setForm({ ...form, kind: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="url">Blog / URL</SelectItem>
-                    <SelectItem value="text">Plain text</SelectItem>
-                  </SelectContent>
+                  <SelectContent><SelectItem value="url">URL</SelectItem><SelectItem value="text">Plain text</SelectItem></SelectContent>
                 </Select>
               </div>
               <div><Label>Title</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} maxLength={200} /></div>
               {form.kind === "url" ? (
                 <div><Label>URL</Label><Input value={form.source_url} onChange={(e) => setForm({ ...form, source_url: e.target.value })} placeholder="https://yourblog.com/article" /></div>
               ) : (
-                <div><Label>Content</Label><Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} rows={6} maxLength={10000} /></div>
+                <div><Label>Content</Label><Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} rows={6} maxLength={20000} /></div>
               )}
             </div>
-            <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button variant="editorial" onClick={save}>Add source</Button></DialogFooter>
+            <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button variant="editorial" onClick={save}>Add &amp; index</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
@@ -85,18 +96,30 @@ export default function Knowledge() {
       {items.length === 0 ? (
         <div className="border border-dashed border-border rounded-lg p-12 text-center bg-paper-soft">
           <BookOpen className="h-8 w-8 text-ink-soft mx-auto mb-3" />
-          <p className="text-ink-soft">No sources yet. Add a blog URL or paste some text.</p>
+          <p className="text-ink-soft">No sources yet.</p>
         </div>
       ) : (
         <div className="grid gap-3">
           {items.map((k) => (
-            <div key={k.id} className="border border-border rounded-lg p-4 bg-card flex items-start justify-between">
-              <div>
-                <div className="font-medium text-ink">{k.title}</div>
+            <div key={k.id} className="border border-border rounded-lg p-4 bg-card flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-ink">{k.title}</span>
+                  {k.indexed_at
+                    ? <Badge variant="default" className="text-[10px]">indexed · {k.chunk_count} chunks</Badge>
+                    : <Badge variant="secondary" className="text-[10px]">pending</Badge>}
+                  {k.indexing_error && <Badge variant="destructive" className="text-[10px]">error</Badge>}
+                </div>
                 <div className="text-xs text-ink-soft mt-1">{k.bots?.name} · {k.kind}</div>
-                {k.source_url && <a href={k.source_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline mt-1 block truncate max-w-md">{k.source_url}</a>}
+                {k.source_url && <a href={k.source_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline mt-1 block truncate">{k.source_url}</a>}
+                {k.indexing_error && <p className="text-xs text-destructive mt-1">{k.indexing_error}</p>}
               </div>
-              <Button variant="ghost" size="icon" onClick={() => remove(k.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="icon" onClick={() => reindex(k.id)} disabled={busy === k.id}>
+                  <RefreshCw className={`h-4 w-4 ${busy === k.id ? "animate-spin" : ""}`} />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => remove(k.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+              </div>
             </div>
           ))}
         </div>
