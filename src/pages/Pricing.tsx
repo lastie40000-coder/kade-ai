@@ -12,7 +12,7 @@ const plans = [
   {
     id: "free", name: "Free", price: "$0", per: "forever",
     desc: "Try KADE on a single small group.",
-    features: ["1 bot", "1 group", "100 messages logged", "Bring your own OpenAI key"],
+    features: ["1 bot", "1 group", "100 messages logged", "AI replies included"],
     cta: "Start free",
   },
   {
@@ -59,7 +59,7 @@ export default function Pricing() {
         <div className="max-w-2xl">
           <div className="text-xs uppercase tracking-[0.18em] text-primary mb-3">Pricing</div>
           <h1 className="font-display text-5xl text-ink text-balance">Simple plans. Grow when you're ready.</h1>
-          <p className="text-ink-soft mt-4">All plans require your own OpenAI API key — your usage, your control.</p>
+          <p className="text-ink-soft mt-4">AI replies are included on every plan — no API keys to manage.</p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-12">
