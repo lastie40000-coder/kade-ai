@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Send, Link2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { autoLinkTelegramIfPossible } from "@/lib/telegram";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -23,7 +24,15 @@ export default function Settings() {
     setTelegramUsername(data?.telegram_username ?? null);
   };
 
-  useEffect(() => { loadProfile(); }, [user]);
+  useEffect(() => {
+    loadProfile();
+    autoLinkTelegramIfPossible().then((r) => {
+      if (r?.linked) {
+        toast.success(`Telegram linked${r.username ? ` as @${r.username}` : ""}`);
+        loadProfile();
+      }
+    }).catch(() => {});
+  }, [user]);
 
   const save = async () => {
     if (!user) return;

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { autoLinkTelegramIfPossible } from "@/lib/telegram";
 
 const schema = z.object({
   email: z.string().trim().email("Enter a valid email").max(255),
@@ -26,7 +27,10 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) navigate("/dashboard", { replace: true });
+    if (user) {
+      autoLinkTelegramIfPossible().catch(() => {});
+      navigate("/dashboard", { replace: true });
+    }
   }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
