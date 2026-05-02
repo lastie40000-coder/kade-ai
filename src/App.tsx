@@ -17,6 +17,11 @@ import Messages from "./pages/dashboard/Messages";
 import Billing from "./pages/dashboard/Billing";
 import Settings from "./pages/dashboard/Settings";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminBots from "./pages/admin/AdminBots";
+import AdminMessages from "./pages/admin/AdminMessages";
+import AdminModeration from "./pages/admin/AdminModeration";
+import AdminActivity from "./pages/admin/AdminActivity";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +46,11 @@ const App = () => (
             <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
             <Route path="/admin" element={<ProtectedRoute ownerOnly><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/users" element={<ProtectedRoute ownerOnly><AdminUsers /></ProtectedRoute>} />
+            <Route path="/admin/bots" element={<ProtectedRoute ownerOnly><AdminBots /></ProtectedRoute>} />
+            <Route path="/admin/messages" element={<ProtectedRoute ownerOnly><AdminMessages /></ProtectedRoute>} />
+            <Route path="/admin/moderation" element={<ProtectedRoute ownerOnly><AdminModeration /></ProtectedRoute>} />
+            <Route path="/admin/activity" element={<ProtectedRoute ownerOnly><AdminActivity /></ProtectedRoute>} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>
