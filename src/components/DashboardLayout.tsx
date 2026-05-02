@@ -1,6 +1,6 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { ReactNode, useState } from "react";
-import { Bot, MessageSquare, Users, BookOpen, CreditCard, Settings, Shield, LogOut, Home, Menu, X } from "lucide-react";
+import { Bot, MessageSquare, Users, BookOpen, CreditCard, Settings, LogOut, Home, Menu, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 
@@ -15,7 +15,7 @@ const nav = [
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const { user, signOut, isOwner } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -51,20 +51,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             {n.label}
           </NavLink>
         ))}
-        {isOwner && (
-          <NavLink
-            to="/admin"
-            onClick={() => setMobileOpen(false)}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition mt-6 ${
-                isActive ? "bg-primary text-primary-foreground" : "text-primary hover:bg-primary/10"
-              }`
-            }
-          >
-            <Shield className="h-4 w-4" />
-            Owner admin
-          </NavLink>
-        )}
       </nav>
       <div className="p-4 border-t border-border">
         <div className="text-xs text-ink-soft truncate mb-2">{user?.email}</div>
