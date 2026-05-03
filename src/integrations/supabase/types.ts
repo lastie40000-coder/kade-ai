@@ -181,6 +181,7 @@ export type Database = {
           bot_id: string
           chunk_index: number
           content: string
+          content_tsv: unknown
           created_at: string
           embedding: string | null
           id: string
@@ -191,6 +192,7 @@ export type Database = {
           bot_id: string
           chunk_index: number
           content: string
+          content_tsv?: unknown
           created_at?: string
           embedding?: string | null
           id?: string
@@ -201,6 +203,7 @@ export type Database = {
           bot_id?: string
           chunk_index?: number
           content?: string
+          content_tsv?: unknown
           created_at?: string
           embedding?: string | null
           id?: string
@@ -524,7 +527,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      match_knowledge_chunks: {
+      match_knowledge_chunks_text: {
         Args: { _bot_id: string; _match_count?: number; _query: string }
         Returns: {
           content: string

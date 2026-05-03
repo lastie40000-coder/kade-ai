@@ -1,4 +1,4 @@
-// Chunks knowledge_sources content and embeds via Lovable AI Gateway.
+// Chunks knowledge_sources content and stores them for full-text RAG.
 // Body: { source_id: string }  (or { bot_id } to reindex all of a bot's sources)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -7,8 +7,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const EMBED_URL = "https://ai.gateway.lovable.dev/v1/embeddings";
-const EMBED_MODEL = "google/text-embedding-004"; // 768-dim
 const CHUNK_CHARS = 1200;
 const CHUNK_OVERLAP = 150;
 
@@ -23,7 +21,6 @@ function chunk(text: string): string[] {
 }
 
 async function fetchUrl(url: string): Promise<string> {
-  // Validate URL
   let parsed: URL;
   try { parsed = new URL(url); } catch { throw new Error(`Invalid URL: ${url}`); }
   if (!/^https?:$/.test(parsed.protocol)) throw new Error("Only http(s) URLs are supported");
@@ -36,7 +33,6 @@ async function fetchUrl(url: string): Promise<string> {
       signal: ctrl.signal,
       redirect: "follow",
       headers: {
-        // Use a realistic browser UA — many sites block bare fetch UAs
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -54,7 +50,6 @@ async function fetchUrl(url: string): Promise<string> {
     throw new Error(`Unsupported content-type: ${ct}`);
   }
   const html = (await r.text()).slice(0, 1_500_000);
-  // strip tags
   const text = html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
@@ -72,21 +67,6 @@ async function fetchUrl(url: string): Promise<string> {
   return text;
 }
 
-async function embed(texts: string[]): Promise<number[][]> {
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
-  const r = await fetch(EMBED_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: EMBED_MODEL, input: texts }),
-  });
-  if (r.status === 429) throw new Error("AI rate limit");
-  if (r.status === 402) throw new Error("AI credits exhausted");
-  const data = await r.json();
-  if (!r.ok) throw new Error(data?.error?.message || "embedding error");
-  return (data.data || []).map((d: any) => d.embedding);
-}
-
 async function indexSource(supabase: any, source: any) {
   const text = source.kind === "url" && source.source_url
     ? await fetchUrl(source.source_url)
@@ -99,15 +79,6 @@ async function indexSource(supabase: any, source: any) {
     return { source: source.id, chunks: 0 };
   }
 
-  // Embed in batches of 16
-  const all: number[][] = [];
-  for (let i = 0; i < chunks.length; i += 16) {
-    const batch = chunks.slice(i, i + 16);
-    const vecs = await embed(batch);
-    all.push(...vecs);
-  }
-
-  // Replace existing chunks for this source
   await supabase.from("knowledge_chunks").delete().eq("source_id", source.id);
   const rows = chunks.map((c, i) => ({
     source_id: source.id,
@@ -115,11 +86,9 @@ async function indexSource(supabase: any, source: any) {
     owner_id: source.owner_id,
     chunk_index: i,
     content: c,
-    embedding: all[i] as any,
   }));
-  // Insert in batches to avoid request size limits
-  for (let i = 0; i < rows.length; i += 50) {
-    const batch = rows.slice(i, i + 50);
+  for (let i = 0; i < rows.length; i += 100) {
+    const batch = rows.slice(i, i + 100);
     const { error } = await supabase.from("knowledge_chunks").insert(batch);
     if (error) throw error;
   }
@@ -158,11 +127,11 @@ Deno.serve(async (req) => {
     let sources: any[] = [];
     if (body.source_id) {
       const { data } = await admin.from("knowledge_sources").select("*")
-        .eq("id", body.source_id).eq("owner_id", u.user.id).maybeSingle();
+        .eq("id", body.source_id).maybeSingle();
       if (data) sources = [data];
     } else if (body.bot_id) {
       const { data } = await admin.from("knowledge_sources").select("*")
-        .eq("bot_id", body.bot_id).eq("owner_id", u.user.id);
+        .eq("bot_id", body.bot_id);
       sources = data || [];
     } else {
       return new Response(JSON.stringify({ error: "source_id or bot_id required" }), {

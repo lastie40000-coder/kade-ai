@@ -41,30 +41,14 @@ async function send(token: string, chatId: number | string, text: string, replyT
   });
 }
 
-async function embed(text: string): Promise<number[] | null> {
-  try {
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) return null;
-    const r = await fetch(EMBED_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: EMBED_MODEL, input: [text] }),
-    });
-    if (!r.ok) return null;
-    const data = await r.json();
-    return data.data?.[0]?.embedding ?? null;
-  } catch { return null; }
-}
-
 async function ragSnippets(supabase: any, botId: string, question: string, k = 4): Promise<string> {
-  const v = await embed(question);
-  if (!v) return "";
-  const { data } = await supabase.rpc("match_knowledge_chunks", {
-    _bot_id: botId, _query: v as any, _match_count: k,
+  const q = (question || "").trim();
+  if (!q) return "";
+  const { data } = await supabase.rpc("match_knowledge_chunks_text", {
+    _bot_id: botId, _query: q, _match_count: k,
   });
   if (!data || data.length === 0) return "";
   return data
-    .filter((r: any) => r.similarity > 0.55)
     .map((r: any, i: number) => `[${i + 1}] ${r.content}`)
     .join("\n\n")
     .slice(0, 5000);
