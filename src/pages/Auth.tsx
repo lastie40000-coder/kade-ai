@@ -19,19 +19,19 @@ const schema = z.object({
 export default function Auth() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading, isOwner } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">(params.get("mode") === "signup" ? "signup" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Wait for roles to resolve before redirecting so owners always land on /admin.
   useEffect(() => {
-    if (user) {
-      autoLinkTelegramIfPossible().catch(() => {});
-      navigate("/dashboard", { replace: true });
-    }
-  }, [user, navigate]);
+    if (!user || authLoading) return;
+    autoLinkTelegramIfPossible().catch(() => {});
+    navigate(isOwner ? "/admin" : "/dashboard", { replace: true });
+  }, [user, authLoading, isOwner, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
