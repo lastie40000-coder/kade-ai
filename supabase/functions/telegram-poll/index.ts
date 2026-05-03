@@ -130,9 +130,11 @@ async function getMe(token: string, bot: any, supabase: any): Promise<{ username
 }
 
 async function isGroupAdmin(token: string, chatId: number, userId: number): Promise<boolean> {
-  const r = await tg(token, "getChatMember", { chat_id: chatId, user_id: userId });
-  const status = r?.result?.status;
-  return status === "creator" || status === "administrator";
+  try {
+    const r = await tg(token, "getChatMember", { chat_id: chatId, user_id: userId });
+    const status = r?.result?.status;
+    return status === "creator" || status === "administrator";
+  } catch { return false; }
 }
 
 async function logMod(supabase: any, bot: any, chatId: number, action: string, opts: any) {
