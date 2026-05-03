@@ -91,7 +91,8 @@ Reply rules:
 - If you don't know something, say so plainly. Don't invent facts.
 - Never apologize unprompted. Never say "I hope this helps".
 - Keep replies under 4 short sentences unless explicitly asked for detail.
-- No bullet lists for casual chat. Save lists for actual lists.`;
+- No bullet lists for casual chat. Save lists for actual lists.
+- NEVER claim you "are not an admin" or refuse moderation requests in chat — moderation runs through /ban /kick /mute /del /pin /warn commands. If asked to moderate in conversation, briefly tell the user to reply to the offender's message with one of those commands.`;
 }
 
 async function askAI(system: string, userText: string): Promise<string> {
