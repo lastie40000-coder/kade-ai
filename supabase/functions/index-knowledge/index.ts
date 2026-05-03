@@ -23,18 +23,53 @@ function chunk(text: string): string[] {
 }
 
 async function fetchUrl(url: string): Promise<string> {
-  const r = await fetch(url, { headers: { "User-Agent": "KADE-bot/1.0" } });
-  if (!r.ok) throw new Error(`fetch ${url} ${r.status}`);
-  const html = await r.text();
+  // Validate URL
+  let parsed: URL;
+  try { parsed = new URL(url); } catch { throw new Error(`Invalid URL: ${url}`); }
+  if (!/^https?:$/.test(parsed.protocol)) throw new Error("Only http(s) URLs are supported");
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20_000);
+  let r: Response;
+  try {
+    r = await fetch(url, {
+      signal: ctrl.signal,
+      redirect: "follow",
+      headers: {
+        // Use a realistic browser UA — many sites block bare fetch UAs
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    throw new Error(`Could not reach ${url}: ${(e as Error).message}`);
+  }
+  clearTimeout(timer);
+  if (!r.ok) throw new Error(`Page returned ${r.status} ${r.statusText}`);
+  const ct = r.headers.get("content-type") || "";
+  if (!ct.includes("text/") && !ct.includes("xml") && !ct.includes("json")) {
+    throw new Error(`Unsupported content-type: ${ct}`);
+  }
+  const html = (await r.text()).slice(0, 1_500_000);
   // strip tags
-  return html
+  const text = html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
     .replace(/\s+/g, " ")
     .trim();
+  if (!text) throw new Error("Page had no readable text content");
+  return text;
 }
 
 async function embed(texts: string[]): Promise<number[][]> {
