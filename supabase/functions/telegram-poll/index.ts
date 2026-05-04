@@ -41,18 +41,58 @@ async function send(token: string, chatId: number | string, text: string, replyT
   });
 }
 
-async function ragSnippets(supabase: any, botId: string, question: string, k = 4): Promise<string> {
+async function ragSnippets(supabase: any, botId: string, question: string, k = 6): Promise<string> {
   const q = (question || "").trim();
   if (!q) return "";
-  const { data } = await supabase.rpc("match_knowledge_chunks_text", {
+
+  // Try the natural query first.
+  let { data } = await supabase.rpc("match_knowledge_chunks_text", {
     _bot_id: botId, _query: q, _match_count: k,
   });
-  if (!data || data.length === 0) return "";
+
+  // If nothing matched, OR-join meaningful tokens and retry — much more forgiving.
+  if (!data || data.length === 0) {
+    const tokens = q.toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .split(/\s+/)
+      .filter((w: string) => w.length > 2);
+    if (tokens.length > 0) {
+      const orQuery = tokens.join(" or ");
+      const r = await supabase.rpc("match_knowledge_chunks_text", {
+        _bot_id: botId, _query: orQuery, _match_count: k,
+      });
+      data = r.data;
+    }
+  }
+
+  // Final fallback: pull a few recent chunks so the bot at least sees some context.
+  if (!data || data.length === 0) {
+    const { data: recent } = await supabase
+      .from("knowledge_chunks")
+      .select("content")
+      .eq("bot_id", botId)
+      .order("created_at", { ascending: false })
+      .limit(k);
+    if (recent && recent.length > 0) {
+      return recent.map((r: any, i: number) => `[${i + 1}] ${r.content}`).join("\n\n").slice(0, 6000);
+    }
+    return "";
+  }
+
   return data
     .map((r: any, i: number) => `[${i + 1}] ${r.content}`)
     .join("\n\n")
-    .slice(0, 5000);
+    .slice(0, 6000);
 }
+
+async function hasKnowledge(supabase: any, botId: string): Promise<boolean> {
+  const { count } = await supabase
+    .from("knowledge_chunks")
+    .select("id", { count: "exact", head: true })
+    .eq("bot_id", botId);
+  return (count ?? 0) > 0;
+}
+
 
 function buildSystemPrompt(bot: any, group: any | null, knowledge: string): string {
   const tone = TONES[bot.tone] || TONES.friendly;
