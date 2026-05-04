@@ -544,7 +544,7 @@ async function processBot(supabase: any, bot: any, deadline: number) {
       }
       if (text === "/help" && !isPrivate) {
         await send(bot.telegram_bot_token, msg.chat.id,
-          "Mention me or reply to my messages to chat. Admins can use /ban /kick /mute /del /pin (reply to a user's message).", msg.message_id);
+          `Mention me, reply to my messages, or just say my name to chat. Admins can use /ban /kick /mute /del /pin (reply to a user's message).`, msg.message_id);
         processed++; continue;
       }
 
