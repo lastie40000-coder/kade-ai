@@ -58,7 +58,14 @@ export default function Bots() {
       toast.success("Bot updated");
     } else {
       const { error } = await supabase.from("bots").insert({ ...form, owner_id: user.id, status: "active" });
-      if (error) return toast.error(error.message);
+      if (error) {
+        if (error.message?.includes("PLAN_LIMIT_BOTS")) {
+          return toast.error("You've hit your plan's bot limit. Upgrade to add more.", {
+            action: { label: "See plans", onClick: () => (window.location.href = "/pricing") },
+          });
+        }
+        return toast.error(error.message);
+      }
       toast.success("Bot created and activated");
     }
     setOpen(false); reset(); load();
