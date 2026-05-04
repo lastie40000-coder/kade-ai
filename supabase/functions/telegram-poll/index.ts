@@ -564,6 +564,42 @@ async function processBot(supabase: any, bot: any, deadline: number) {
         if (!mentioned && !isReply && !nameHit) continue;
       }
 
+      // ----- Subscription quota + per-user rate limit -----
+      try {
+        const { data: usage } = await supabase.rpc("bot_usage_status", { _bot_id: bot.id });
+        const u = Array.isArray(usage) ? usage[0] : usage;
+        if (u && u.monthly_messages >= u.max_monthly_messages) {
+          // Soft-warn the user once, but don't spam the channel.
+          await send(bot.telegram_bot_token, msg.chat.id,
+            `🛑 Monthly message limit reached on this workspace (${u.max_monthly_messages}). Owner needs to upgrade the plan.`,
+            msg.message_id);
+          processed++; continue;
+        }
+
+        // Per-user, per-bot rate limit (last 60s).
+        const tgUser = msg.from?.username || msg.from?.first_name || String(msg.from?.id || "");
+        if (tgUser && u?.max_msgs_per_minute) {
+          const sinceIso = new Date(Date.now() - 60_000).toISOString();
+          const { count: recentCount } = await supabase
+            .from("bot_messages")
+            .select("id", { count: "exact", head: true })
+            .eq("bot_id", bot.id)
+            .eq("telegram_user", tgUser)
+            .gte("created_at", sinceIso);
+          if ((recentCount ?? 0) > u.max_msgs_per_minute) {
+            // Stay silent in groups to avoid spam; warn once in DM.
+            if (isPrivate) {
+              await send(bot.telegram_bot_token, msg.chat.id,
+                `Slow down a sec — you're sending faster than the plan allows (${u.max_msgs_per_minute}/min).`,
+                msg.message_id);
+            }
+            processed++; continue;
+          }
+        }
+      } catch (e) {
+        console.error("quota check failed:", (e as Error).message);
+      }
+
       try {
         let cleanText = me.username ? text.replaceAll(`@${me.username}`, "").trim() : text;
         // Strip the bot's name from the front so the question reads naturally to the model.

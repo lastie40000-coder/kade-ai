@@ -520,6 +520,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bot_usage_status: {
+        Args: { _bot_id: string }
+        Returns: {
+          max_monthly_messages: number
+          max_msgs_per_minute: number
+          monthly_messages: number
+          plan: Database["public"]["Enums"]["plan_tier"]
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -535,6 +544,19 @@ export type Database = {
           similarity: number
           source_id: string
         }[]
+      }
+      plan_limits: {
+        Args: { _plan: Database["public"]["Enums"]["plan_tier"] }
+        Returns: {
+          max_bots: number
+          max_groups: number
+          max_monthly_messages: number
+          max_msgs_per_minute: number
+        }[]
+      }
+      user_plan: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["plan_tier"]
       }
     }
     Enums: {
