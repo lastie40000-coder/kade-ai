@@ -41,20 +41,60 @@ async function send(token: string, chatId: number | string, text: string, replyT
   });
 }
 
-async function ragSnippets(supabase: any, botId: string, question: string, k = 4): Promise<string> {
+async function ragSnippets(supabase: any, botId: string, question: string, k = 6): Promise<string> {
   const q = (question || "").trim();
   if (!q) return "";
-  const { data } = await supabase.rpc("match_knowledge_chunks_text", {
+
+  // Try the natural query first.
+  let { data } = await supabase.rpc("match_knowledge_chunks_text", {
     _bot_id: botId, _query: q, _match_count: k,
   });
-  if (!data || data.length === 0) return "";
+
+  // If nothing matched, OR-join meaningful tokens and retry — much more forgiving.
+  if (!data || data.length === 0) {
+    const tokens = q.toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .split(/\s+/)
+      .filter((w: string) => w.length > 2);
+    if (tokens.length > 0) {
+      const orQuery = tokens.join(" or ");
+      const r = await supabase.rpc("match_knowledge_chunks_text", {
+        _bot_id: botId, _query: orQuery, _match_count: k,
+      });
+      data = r.data;
+    }
+  }
+
+  // Final fallback: pull a few recent chunks so the bot at least sees some context.
+  if (!data || data.length === 0) {
+    const { data: recent } = await supabase
+      .from("knowledge_chunks")
+      .select("content")
+      .eq("bot_id", botId)
+      .order("created_at", { ascending: false })
+      .limit(k);
+    if (recent && recent.length > 0) {
+      return recent.map((r: any, i: number) => `[${i + 1}] ${r.content}`).join("\n\n").slice(0, 6000);
+    }
+    return "";
+  }
+
   return data
     .map((r: any, i: number) => `[${i + 1}] ${r.content}`)
     .join("\n\n")
-    .slice(0, 5000);
+    .slice(0, 6000);
 }
 
-function buildSystemPrompt(bot: any, group: any | null, knowledge: string): string {
+async function hasKnowledge(supabase: any, botId: string): Promise<boolean> {
+  const { count } = await supabase
+    .from("knowledge_chunks")
+    .select("id", { count: "exact", head: true })
+    .eq("bot_id", botId);
+  return (count ?? 0) > 0;
+}
+
+
+function buildSystemPrompt(bot: any, group: any | null, knowledge: string, knowledgeExists: boolean): string {
   const tone = TONES[bot.tone] || TONES.friendly;
   const persona = bot.personality || "";
   const groupCtx = group
@@ -62,7 +102,13 @@ function buildSystemPrompt(bot: any, group: any | null, knowledge: string): stri
     : "You are in a private chat.";
   const houseRules = bot.house_rules ? `\nHouse rules to follow:\n${bot.house_rules}` : "";
   const customInstr = bot.default_instructions ? `\n\nOwner instructions:\n${bot.default_instructions}` : "";
-  const knowledgeBlock = knowledge ? `\n\nUse this knowledge from the workspace when relevant. Quote naturally — do not list source numbers unless asked.\n${knowledge}` : "";
+
+  let knowledgeBlock = "";
+  if (knowledge) {
+    knowledgeBlock = `\n\n=== KNOWLEDGE BASE (authoritative) ===\n${knowledge}\n=== END KNOWLEDGE ===\n\nGround every factual answer in the knowledge above. Paraphrase naturally — do not quote source numbers. If the user's question is clearly outside this knowledge, say so honestly in one short line and offer to help with what you do cover.`;
+  } else if (knowledgeExists) {
+    knowledgeBlock = `\n\nThe owner gave you a knowledge base, but nothing in it matches this message. Tell the user briefly that this isn't covered in your notes, then offer what you can help with. Do NOT invent facts.`;
+  }
 
   return `You are *${bot.name}*, a Telegram bot.
 
@@ -72,7 +118,8 @@ ${persona ? `Character: ${persona}\n` : ""}${groupCtx}${houseRules}${customInstr
 Reply rules:
 - Sound like a real person, not an AI assistant. NEVER say "as an AI" or "I'm just an AI".
 - Match the user's energy and length. One-liners get one-liners.
-- If you don't know something, say so plainly. Don't invent facts.
+- If a knowledge base is provided above, stick to it. Don't make up facts that aren't there.
+- If you genuinely don't know, say so plainly in one line.
 - Never apologize unprompted. Never say "I hope this helps".
 - Keep replies under 4 short sentences unless explicitly asked for detail.
 - No bullet lists for casual chat. Save lists for actual lists.
@@ -497,23 +544,38 @@ async function processBot(supabase: any, bot: any, deadline: number) {
       }
       if (text === "/help" && !isPrivate) {
         await send(bot.telegram_bot_token, msg.chat.id,
-          "Mention me or reply to my messages to chat. Admins can use /ban /kick /mute /del /pin (reply to a user's message).", msg.message_id);
+          `Mention me, reply to my messages, or just say my name to chat. Admins can use /ban /kick /mute /del /pin (reply to a user's message).`, msg.message_id);
         processed++; continue;
       }
 
       if (bot.status !== "active") continue;
 
-      // In groups, only respond on mention/reply
+      // In groups, respond when @mentioned, replied-to, or the bot's name appears.
+      let nameHit = false;
       if (isGroup) {
-        const mentioned = me.username && text.includes(`@${me.username}`);
+        const mentioned = me.username && text.toLowerCase().includes(`@${me.username.toLowerCase()}`);
         const isReply = msg.reply_to_message?.from?.id === me.id;
-        if (!mentioned && !isReply) continue;
+        const lowerText = text.toLowerCase();
+        const nameTokens = (bot.name || "")
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((t: string) => t.length >= 3);
+        nameHit = nameTokens.some((t: string) => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(lowerText));
+        if (!mentioned && !isReply && !nameHit) continue;
       }
 
       try {
-        const cleanText = me.username ? text.replaceAll(`@${me.username}`, "").trim() : text;
-        const knowledge = await ragSnippets(supabase, bot.id, cleanText, 4);
-        const system = buildSystemPrompt(bot, group, knowledge);
+        let cleanText = me.username ? text.replaceAll(`@${me.username}`, "").trim() : text;
+        // Strip the bot's name from the front so the question reads naturally to the model.
+        if (isGroup && nameHit && bot.name) {
+          const nameRe = new RegExp(`^[,\\s]*${bot.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[,:\\s]*`, "i");
+          cleanText = cleanText.replace(nameRe, "").trim() || cleanText;
+        }
+        const [knowledge, kExists] = await Promise.all([
+          ragSnippets(supabase, bot.id, cleanText, 6),
+          hasKnowledge(supabase, bot.id),
+        ]);
+        const system = buildSystemPrompt(bot, group, knowledge, kExists);
         const reply = await askAI(system, cleanText);
         if (reply) {
           await send(bot.telegram_bot_token, msg.chat.id, reply, msg.message_id);
