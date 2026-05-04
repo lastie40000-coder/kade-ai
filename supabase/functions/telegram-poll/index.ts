@@ -550,17 +550,32 @@ async function processBot(supabase: any, bot: any, deadline: number) {
 
       if (bot.status !== "active") continue;
 
-      // In groups, only respond on mention/reply
+      // In groups, respond when @mentioned, replied-to, or the bot's name appears.
+      let nameHit = false;
       if (isGroup) {
-        const mentioned = me.username && text.includes(`@${me.username}`);
+        const mentioned = me.username && text.toLowerCase().includes(`@${me.username.toLowerCase()}`);
         const isReply = msg.reply_to_message?.from?.id === me.id;
-        if (!mentioned && !isReply) continue;
+        const lowerText = text.toLowerCase();
+        const nameTokens = (bot.name || "")
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((t: string) => t.length >= 3);
+        nameHit = nameTokens.some((t: string) => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(lowerText));
+        if (!mentioned && !isReply && !nameHit) continue;
       }
 
       try {
-        const cleanText = me.username ? text.replaceAll(`@${me.username}`, "").trim() : text;
-        const knowledge = await ragSnippets(supabase, bot.id, cleanText, 4);
-        const system = buildSystemPrompt(bot, group, knowledge);
+        let cleanText = me.username ? text.replaceAll(`@${me.username}`, "").trim() : text;
+        // Strip the bot's name from the front so the question reads naturally to the model.
+        if (isGroup && nameHit && bot.name) {
+          const nameRe = new RegExp(`^[,\\s]*${bot.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[,:\\s]*`, "i");
+          cleanText = cleanText.replace(nameRe, "").trim() || cleanText;
+        }
+        const [knowledge, kExists] = await Promise.all([
+          ragSnippets(supabase, bot.id, cleanText, 6),
+          hasKnowledge(supabase, bot.id),
+        ]);
+        const system = buildSystemPrompt(bot, group, knowledge, kExists);
         const reply = await askAI(system, cleanText);
         if (reply) {
           await send(bot.telegram_bot_token, msg.chat.id, reply, msg.message_id);
