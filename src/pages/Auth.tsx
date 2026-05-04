@@ -28,10 +28,10 @@ export default function Auth() {
 
   // Wait for roles to resolve before redirecting so owners always land on /admin.
   useEffect(() => {
-    if (!user || authLoading) return;
+    if (!user || authLoading || !rolesLoaded) return;
     autoLinkTelegramIfPossible().catch(() => {});
     navigate(isOwner ? "/admin" : "/dashboard", { replace: true });
-  }, [user, authLoading, isOwner, navigate]);
+  }, [user, authLoading, rolesLoaded, isOwner, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
