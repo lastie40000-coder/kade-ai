@@ -19,7 +19,7 @@ const schema = z.object({
 export default function Auth() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { user, loading: authLoading, isOwner } = useAuth();
+  const { user, loading: authLoading, rolesLoaded, isOwner } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">(params.get("mode") === "signup" ? "signup" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
