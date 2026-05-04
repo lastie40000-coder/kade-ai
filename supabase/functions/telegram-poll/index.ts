@@ -94,7 +94,7 @@ async function hasKnowledge(supabase: any, botId: string): Promise<boolean> {
 }
 
 
-function buildSystemPrompt(bot: any, group: any | null, knowledge: string): string {
+function buildSystemPrompt(bot: any, group: any | null, knowledge: string, knowledgeExists: boolean): string {
   const tone = TONES[bot.tone] || TONES.friendly;
   const persona = bot.personality || "";
   const groupCtx = group
@@ -102,7 +102,13 @@ function buildSystemPrompt(bot: any, group: any | null, knowledge: string): stri
     : "You are in a private chat.";
   const houseRules = bot.house_rules ? `\nHouse rules to follow:\n${bot.house_rules}` : "";
   const customInstr = bot.default_instructions ? `\n\nOwner instructions:\n${bot.default_instructions}` : "";
-  const knowledgeBlock = knowledge ? `\n\nUse this knowledge from the workspace when relevant. Quote naturally — do not list source numbers unless asked.\n${knowledge}` : "";
+
+  let knowledgeBlock = "";
+  if (knowledge) {
+    knowledgeBlock = `\n\n=== KNOWLEDGE BASE (authoritative) ===\n${knowledge}\n=== END KNOWLEDGE ===\n\nGround every factual answer in the knowledge above. Paraphrase naturally — do not quote source numbers. If the user's question is clearly outside this knowledge, say so honestly in one short line and offer to help with what you do cover.`;
+  } else if (knowledgeExists) {
+    knowledgeBlock = `\n\nThe owner gave you a knowledge base, but nothing in it matches this message. Tell the user briefly that this isn't covered in your notes, then offer what you can help with. Do NOT invent facts.`;
+  }
 
   return `You are *${bot.name}*, a Telegram bot.
 
@@ -112,7 +118,8 @@ ${persona ? `Character: ${persona}\n` : ""}${groupCtx}${houseRules}${customInstr
 Reply rules:
 - Sound like a real person, not an AI assistant. NEVER say "as an AI" or "I'm just an AI".
 - Match the user's energy and length. One-liners get one-liners.
-- If you don't know something, say so plainly. Don't invent facts.
+- If a knowledge base is provided above, stick to it. Don't make up facts that aren't there.
+- If you genuinely don't know, say so plainly in one line.
 - Never apologize unprompted. Never say "I hope this helps".
 - Keep replies under 4 short sentences unless explicitly asked for detail.
 - No bullet lists for casual chat. Save lists for actual lists.
