@@ -8,6 +8,7 @@ interface AuthCtx {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  rolesLoaded: boolean;
   roles: Role[];
   isOwner: boolean;
   signOut: () => Promise<void>;
@@ -20,20 +21,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
+
+  const loadRoles = async (uid: string) => {
+    try {
+      const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
+      setRoles((data ?? []).map((r: any) => r.role as Role));
+    } finally {
+      setRolesLoaded(true);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
 
-    // Listener first — also clears loading so we never get stuck
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       if (!mounted) return;
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
       if (s?.user) {
+        setRolesLoaded(false);
         setTimeout(() => loadRoles(s.user.id), 0);
       } else {
         setRoles([]);
+        setRolesLoaded(true);
       }
     });
 
@@ -41,11 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       setSession(s);
       setUser(s?.user ?? null);
-      if (s?.user) loadRoles(s.user.id);
+      if (s?.user) {
+        loadRoles(s.user.id);
+      } else {
+        setRolesLoaded(true);
+      }
       setLoading(false);
-    }).catch(() => { if (mounted) setLoading(false); });
+    }).catch(() => { if (mounted) { setLoading(false); setRolesLoaded(true); } });
 
-    // Hard safety net: never let loading hang past 4s
     const safety = setTimeout(() => { if (mounted) setLoading(false); }, 4000);
 
     return () => {
@@ -55,11 +70,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const loadRoles = async (uid: string) => {
-    const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
-    setRoles((data ?? []).map((r: any) => r.role as Role));
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
   };
@@ -67,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isOwner = roles.includes("owner");
 
   return (
-    <Ctx.Provider value={{ user, session, loading, roles, isOwner, signOut }}>
+    <Ctx.Provider value={{ user, session, loading, rolesLoaded, roles, isOwner, signOut }}>
       {children}
     </Ctx.Provider>
   );
