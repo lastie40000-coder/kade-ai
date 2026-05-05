@@ -9,5 +9,6 @@ export default function ProtectedRoute({ children, ownerOnly = false }: { childr
   }
   if (!user) return <Navigate to="/auth" replace />;
   if (ownerOnly && !isOwner) return <Navigate to="/dashboard" replace />;
+  if (!ownerOnly && isOwner) return <Navigate to="/admin" replace />;
   return <>{children}</>;
 }

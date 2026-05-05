@@ -529,6 +529,15 @@ export type Database = {
           plan: Database["public"]["Enums"]["plan_tier"]
         }[]
       }
+      can_create_bot: {
+        Args: { _user_id: string }
+        Returns: {
+          allowed: boolean
+          current_bots: number
+          max_bots: number
+          plan: Database["public"]["Enums"]["plan_tier"]
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -543,6 +552,15 @@ export type Database = {
           id: string
           similarity: number
           source_id: string
+        }[]
+      }
+      my_bot_quota: {
+        Args: never
+        Returns: {
+          allowed: boolean
+          current_bots: number
+          max_bots: number
+          plan: Database["public"]["Enums"]["plan_tier"]
         }[]
       }
       plan_limits: {

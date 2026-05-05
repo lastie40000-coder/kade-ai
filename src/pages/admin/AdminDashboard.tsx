@@ -165,7 +165,7 @@ export default function AdminDashboard() {
     { icon: Bot, label: "Bots", value: stats.bots.toLocaleString(), sub: `${stats.activeBots} active`, to: "/admin/bots", accent: "primary" },
     { icon: MessageSquare, label: "Messages", value: stats.messages.toLocaleString(), sub: `${stats.messagesToday} today`, to: "/admin/messages", accent: "accent" },
     { icon: AlertTriangle, label: "Moderation", value: stats.modActions.toLocaleString(), sub: `${stats.modToday} today`, to: "/admin/moderation", accent: "primary" },
-    { icon: BookOpen, label: "Knowledge", value: stats.knowledge.toLocaleString(), sub: `${stats.groups} groups`, to: "/dashboard/knowledge", accent: "accent" },
+    { icon: BookOpen, label: "Knowledge", value: stats.knowledge.toLocaleString(), sub: `${stats.groups} groups`, to: "/admin/bots", accent: "accent" },
   ];
 
   const refresh = () => { loadAll(); toast.success("Refreshed"); };
@@ -315,7 +315,6 @@ export default function AdminDashboard() {
             <Button asChild variant="outline" size="sm" className="justify-start"><Link to="/admin/messages"><MessageSquare className="h-3.5 w-3.5" /> Messages</Link></Button>
             <Button asChild variant="outline" size="sm" className="justify-start"><Link to="/admin/moderation"><AlertTriangle className="h-3.5 w-3.5" /> Mod log</Link></Button>
             <Button asChild variant="outline" size="sm" className="justify-start"><Link to="/admin/activity"><Activity className="h-3.5 w-3.5" /> Live feed</Link></Button>
-            <Button asChild variant="outline" size="sm" className="justify-start"><Link to="/dashboard"><Bot className="h-3.5 w-3.5" /> Workspace</Link></Button>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Bot as BotIcon, Trash2, Edit3 } from "lucide-react";
+import { Plus, Bot as BotIcon, Trash2, Edit3, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 type Bot = {
@@ -24,6 +24,12 @@ type Bot = {
   bot_username: string | null;
 };
 
+type BotQuota = { plan: string; current_bots: number; max_bots: number; allowed: boolean };
+
+type QuotaClient = typeof supabase & {
+  rpc(fn: "my_bot_quota"): Promise<{ data: BotQuota[] | null; error: unknown }>;
+};
+
 const TONES = ["friendly", "professional", "witty", "strict", "hype"];
 
 export default function Bots() {
@@ -31,18 +37,23 @@ export default function Bots() {
   const [bots, setBots] = useState<Bot[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Bot | null>(null);
+  const [quota, setQuota] = useState<BotQuota | null>(null);
   const [form, setForm] = useState({
     name: "", description: "", telegram_bot_token: "",
     tone: "friendly", personality: "", house_rules: "", welcome_message: "",
     default_instructions: "",
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from("bots").select("*").eq("owner_id", user.id).order("created_at", { ascending: false });
+    const [{ data }, { data: quotaRows }] = await Promise.all([
+      supabase.from("bots").select("*").eq("owner_id", user.id).order("created_at", { ascending: false }),
+      (supabase as QuotaClient).rpc("my_bot_quota"),
+    ]);
     setBots(data ?? []);
-  };
-  useEffect(() => { load(); }, [user]);
+    setQuota(Array.isArray(quotaRows) ? quotaRows[0] ?? null : quotaRows ?? null);
+  }, [user]);
+  useEffect(() => { load(); }, [load]);
 
   const reset = () => {
     setForm({ name: "", description: "", telegram_bot_token: "", tone: "friendly", personality: "", house_rules: "", welcome_message: "", default_instructions: "" });
@@ -52,6 +63,11 @@ export default function Bots() {
   const save = async () => {
     if (!user) return;
     if (!form.name.trim()) return toast.error("Name is required");
+    if (!editing && quota && !quota.allowed) {
+      return toast.error(`Your ${quota.plan} plan allows ${quota.max_bots} bot${quota.max_bots === 1 ? "" : "s"}.`, {
+        action: { label: "See plans", onClick: () => (window.location.href = "/pricing") },
+      });
+    }
     if (editing) {
       const { error } = await supabase.from("bots").update(form).eq("id", editing.id);
       if (error) return toast.error(error.message);
@@ -108,7 +124,10 @@ export default function Bots() {
         </div>
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
-            <Button variant="editorial"><Plus className="h-4 w-4" /> New bot</Button>
+            <Button variant="editorial" disabled={!!quota && !quota.allowed} title={quota && !quota.allowed ? "Upgrade to create more bots" : undefined}>
+              {quota && !quota.allowed ? <Lock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              New bot
+            </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle className="font-display">{editing ? "Edit bot" : "Create a bot"}</DialogTitle></DialogHeader>

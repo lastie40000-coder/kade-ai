@@ -41,7 +41,7 @@ async function send(token: string, chatId: number | string, text: string, replyT
   });
 }
 
-async function ragSnippets(supabase: any, botId: string, question: string, k = 6): Promise<string> {
+async function ragSnippets(supabase: any, botId: string, question: string, k = 6, useFallback = true): Promise<string> {
   const q = (question || "").trim();
   if (!q) return "";
 
@@ -67,6 +67,7 @@ async function ragSnippets(supabase: any, botId: string, question: string, k = 6
 
   // Final fallback: pull a few recent chunks so the bot at least sees some context.
   if (!data || data.length === 0) {
+    if (!useFallback) return "";
     const { data: recent } = await supabase
       .from("knowledge_chunks")
       .select("content")
@@ -83,6 +84,49 @@ async function ragSnippets(supabase: any, botId: string, question: string, k = 6
     .map((r: any, i: number) => `[${i + 1}] ${r.content}`)
     .join("\n\n")
     .slice(0, 6000);
+}
+
+function escapeRe(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function messageNamesBot(text: string, bot: any, me: { username: string | null; id: number | null }): boolean {
+  const lowerText = text.toLowerCase();
+  if (me.username && new RegExp(`(^|\\s|[,.!?;:])@${escapeRe(me.username.toLowerCase())}(?=$|\\s|[,.!?;:])`).test(lowerText)) return true;
+  const nameTokens = (bot.name || "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((t: string) => t.length >= 3);
+  return nameTokens.some((t: string) => new RegExp(`\\b${escapeRe(t)}\\b`, "iu").test(text));
+}
+
+function stripBotName(text: string, bot: any, me: { username: string | null; id: number | null }): string {
+  let clean = text;
+  if (me.username) clean = clean.replace(new RegExp(`@${escapeRe(me.username)}`, "ig"), " ");
+  const names = [bot.name, ...(bot.name || "").split(/\s+/)].filter((n: string) => n && n.length >= 3);
+  for (const n of names) {
+    clean = clean.replace(new RegExp(`(^|[\n\s,.:;!?-])${escapeRe(n)}(?=($|[\n\s,.:;!?-]))`, "ig"), " ");
+  }
+  return clean.replace(/\s+/g, " ").trim() || text.trim();
+}
+
+function isQuestionLike(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return /\?$/.test(t) || /\b(what|who|when|where|why|how|can|could|should|do|does|did|is|are|am|will|would|tell me|explain|help)\b/i.test(t);
+}
+
+function isGroupRelated(text: string, group: any | null, bot: any): boolean {
+  const hay = text.toLowerCase();
+  const sources = [group?.name, group?.rules, group?.welcome_message, bot.house_rules, bot.default_instructions]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((w: string) => w.length >= 5 && !["about", "group", "rules", "please", "welcome", "message", "members"].includes(w));
+  const keywords = Array.from(new Set(sources)).slice(0, 40);
+  return keywords.some((w: string) => hay.includes(w));
 }
 
 async function hasKnowledge(supabase: any, botId: string): Promise<boolean> {
@@ -550,18 +594,17 @@ async function processBot(supabase: any, bot: any, deadline: number) {
 
       if (bot.status !== "active") continue;
 
-      // In groups, respond when @mentioned, replied-to, or the bot's name appears.
-      let nameHit = false;
+      // In groups, respond when directly called, replied-to, or when the message clearly matches knowledge/group context.
+      let autoKnowledge = "";
       if (isGroup) {
-        const mentioned = me.username && text.toLowerCase().includes(`@${me.username.toLowerCase()}`);
+        const mentionedOrNamed = messageNamesBot(text, bot, me);
         const isReply = msg.reply_to_message?.from?.id === me.id;
-        const lowerText = text.toLowerCase();
-        const nameTokens = (bot.name || "")
-          .toLowerCase()
-          .split(/\s+/)
-          .filter((t: string) => t.length >= 3);
-        nameHit = nameTokens.some((t: string) => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(lowerText));
-        if (!mentioned && !isReply && !nameHit) continue;
+        let shouldReply = Boolean(mentionedOrNamed || isReply);
+        if (!shouldReply && (isQuestionLike(text) || isGroupRelated(text, group, bot))) {
+          autoKnowledge = await ragSnippets(supabase, bot.id, text, 5, false);
+          shouldReply = Boolean(autoKnowledge || isGroupRelated(text, group, bot));
+        }
+        if (!shouldReply) continue;
       }
 
       // ----- Subscription quota + per-user rate limit -----
@@ -601,14 +644,9 @@ async function processBot(supabase: any, bot: any, deadline: number) {
       }
 
       try {
-        let cleanText = me.username ? text.replaceAll(`@${me.username}`, "").trim() : text;
-        // Strip the bot's name from the front so the question reads naturally to the model.
-        if (isGroup && nameHit && bot.name) {
-          const nameRe = new RegExp(`^[,\\s]*${bot.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[,:\\s]*`, "i");
-          cleanText = cleanText.replace(nameRe, "").trim() || cleanText;
-        }
+        const cleanText = isGroup ? stripBotName(text, bot, me) : text.trim();
         const [knowledge, kExists] = await Promise.all([
-          ragSnippets(supabase, bot.id, cleanText, 6),
+          autoKnowledge ? Promise.resolve(autoKnowledge) : ragSnippets(supabase, bot.id, cleanText, 6),
           hasKnowledge(supabase, bot.id),
         ]);
         const system = buildSystemPrompt(bot, group, knowledge, kExists);
