@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,6 +24,12 @@ type Bot = {
   bot_username: string | null;
 };
 
+type BotQuota = { plan: string; current_bots: number; max_bots: number; allowed: boolean };
+
+type QuotaClient = typeof supabase & {
+  rpc(fn: "my_bot_quota"): Promise<{ data: BotQuota[] | null; error: unknown }>;
+};
+
 const TONES = ["friendly", "professional", "witty", "strict", "hype"];
 
 export default function Bots() {
@@ -31,23 +37,23 @@ export default function Bots() {
   const [bots, setBots] = useState<Bot[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Bot | null>(null);
-  const [quota, setQuota] = useState<{ plan: string; current_bots: number; max_bots: number; allowed: boolean } | null>(null);
+  const [quota, setQuota] = useState<BotQuota | null>(null);
   const [form, setForm] = useState({
     name: "", description: "", telegram_bot_token: "",
     tone: "friendly", personality: "", house_rules: "", welcome_message: "",
     default_instructions: "",
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!user) return;
     const [{ data }, { data: quotaRows }] = await Promise.all([
       supabase.from("bots").select("*").eq("owner_id", user.id).order("created_at", { ascending: false }),
-      (supabase as any).rpc("my_bot_quota"),
+      (supabase as QuotaClient).rpc("my_bot_quota"),
     ]);
     setBots(data ?? []);
     setQuota(Array.isArray(quotaRows) ? quotaRows[0] ?? null : quotaRows ?? null);
-  };
-  useEffect(() => { load(); }, [user]);
+  }, [user]);
+  useEffect(() => { load(); }, [load]);
 
   const reset = () => {
     setForm({ name: "", description: "", telegram_bot_token: "", tone: "friendly", personality: "", house_rules: "", welcome_message: "", default_instructions: "" });
