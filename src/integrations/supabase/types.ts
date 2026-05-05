@@ -554,6 +554,15 @@ export type Database = {
           source_id: string
         }[]
       }
+      my_bot_quota: {
+        Args: never
+        Returns: {
+          allowed: boolean
+          current_bots: number
+          max_bots: number
+          plan: Database["public"]["Enums"]["plan_tier"]
+        }[]
+      }
       plan_limits: {
         Args: { _plan: Database["public"]["Enums"]["plan_tier"] }
         Returns: {
