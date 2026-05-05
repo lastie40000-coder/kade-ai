@@ -42,7 +42,7 @@ export default function Bots() {
     if (!user) return;
     const [{ data }, { data: quotaRows }] = await Promise.all([
       supabase.from("bots").select("*").eq("owner_id", user.id).order("created_at", { ascending: false }),
-      (supabase as any).rpc("can_create_bot", { _user_id: user.id }),
+      (supabase as any).rpc("my_bot_quota"),
     ]);
     setBots(data ?? []);
     setQuota(Array.isArray(quotaRows) ? quotaRows[0] ?? null : quotaRows ?? null);
