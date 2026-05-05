@@ -2,7 +2,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { ReactNode, useState } from "react";
 import {
   Shield, LayoutDashboard, Users, Bot as BotIcon, MessageSquare,
-  Activity, AlertTriangle, ArrowLeft, LogOut, Menu, X,
+  Activity, AlertTriangle, LogOut, Menu, X,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -50,11 +50,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </NavLink>
         ))}
 
-        <NavLink to="/dashboard" onClick={() => setMobileOpen(false)}
-          className="flex items-center gap-3 px-3 py-2 rounded-md text-sm transition mt-6 text-ink-soft hover:text-ink hover:bg-accent">
-          <ArrowLeft className="h-4 w-4" />
-          Back to user dashboard
-        </NavLink>
       </nav>
 
       <div className="p-4 border-t border-border/50">
