@@ -594,18 +594,17 @@ async function processBot(supabase: any, bot: any, deadline: number) {
 
       if (bot.status !== "active") continue;
 
-      // In groups, respond when @mentioned, replied-to, or the bot's name appears.
-      let nameHit = false;
+      // In groups, respond when directly called, replied-to, or when the message clearly matches knowledge/group context.
+      let autoKnowledge = "";
       if (isGroup) {
-        const mentioned = me.username && text.toLowerCase().includes(`@${me.username.toLowerCase()}`);
+        const mentionedOrNamed = messageNamesBot(text, bot, me);
         const isReply = msg.reply_to_message?.from?.id === me.id;
-        const lowerText = text.toLowerCase();
-        const nameTokens = (bot.name || "")
-          .toLowerCase()
-          .split(/\s+/)
-          .filter((t: string) => t.length >= 3);
-        nameHit = nameTokens.some((t: string) => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(lowerText));
-        if (!mentioned && !isReply && !nameHit) continue;
+        let shouldReply = Boolean(mentionedOrNamed || isReply);
+        if (!shouldReply && (isQuestionLike(text) || isGroupRelated(text, group, bot))) {
+          autoKnowledge = await ragSnippets(supabase, bot.id, text, 5, false);
+          shouldReply = Boolean(autoKnowledge || isGroupRelated(text, group, bot));
+        }
+        if (!shouldReply) continue;
       }
 
       // ----- Subscription quota + per-user rate limit -----
@@ -645,14 +644,9 @@ async function processBot(supabase: any, bot: any, deadline: number) {
       }
 
       try {
-        let cleanText = me.username ? text.replaceAll(`@${me.username}`, "").trim() : text;
-        // Strip the bot's name from the front so the question reads naturally to the model.
-        if (isGroup && nameHit && bot.name) {
-          const nameRe = new RegExp(`^[,\\s]*${bot.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[,:\\s]*`, "i");
-          cleanText = cleanText.replace(nameRe, "").trim() || cleanText;
-        }
+        const cleanText = isGroup ? stripBotName(text, bot, me) : text.trim();
         const [knowledge, kExists] = await Promise.all([
-          ragSnippets(supabase, bot.id, cleanText, 6),
+          autoKnowledge ? Promise.resolve(autoKnowledge) : ragSnippets(supabase, bot.id, cleanText, 6),
           hasKnowledge(supabase, bot.id),
         ]);
         const system = buildSystemPrompt(bot, group, knowledge, kExists);
