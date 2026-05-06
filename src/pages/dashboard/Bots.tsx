@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Bot as BotIcon, Trash2, Edit3, Lock } from "lucide-react";
+import { Plus, Bot as BotIcon, Trash2, Edit3 } from "lucide-react";
 import { toast } from "sonner";
 
 type Bot = {
@@ -25,9 +25,19 @@ type Bot = {
 };
 
 type BotQuota = { plan: string; current_bots: number; max_bots: number; allowed: boolean };
+type WorkspaceUsage = {
+  plan: string;
+  current_bots: number;
+  max_bots: number;
+  monthly_messages: number;
+  max_monthly_messages: number;
+  max_msgs_per_minute: number;
+  period_end: string;
+};
 
-type QuotaClient = typeof supabase & {
+type RpcClient = typeof supabase & {
   rpc(fn: "my_bot_quota"): Promise<{ data: BotQuota[] | null; error: unknown }>;
+  rpc(fn: "my_workspace_usage"): Promise<{ data: WorkspaceUsage[] | null; error: unknown }>;
 };
 
 const TONES = ["friendly", "professional", "witty", "strict", "hype"];
@@ -38,6 +48,7 @@ export default function Bots() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Bot | null>(null);
   const [quota, setQuota] = useState<BotQuota | null>(null);
+  const [usage, setUsage] = useState<WorkspaceUsage | null>(null);
   const [form, setForm] = useState({
     name: "", description: "", telegram_bot_token: "",
     tone: "friendly", personality: "", house_rules: "", welcome_message: "",
@@ -46,12 +57,15 @@ export default function Bots() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const [{ data }, { data: quotaRows }] = await Promise.all([
+    const client = supabase as RpcClient;
+    const [{ data }, { data: quotaRows }, { data: usageRows }] = await Promise.all([
       supabase.from("bots").select("*").eq("owner_id", user.id).order("created_at", { ascending: false }),
-      (supabase as QuotaClient).rpc("my_bot_quota"),
+      client.rpc("my_bot_quota"),
+      client.rpc("my_workspace_usage"),
     ]);
     setBots(data ?? []);
     setQuota(Array.isArray(quotaRows) ? quotaRows[0] ?? null : quotaRows ?? null);
+    setUsage(Array.isArray(usageRows) ? usageRows[0] ?? null : usageRows ?? null);
   }, [user]);
   useEffect(() => { load(); }, [load]);
 
@@ -125,7 +139,7 @@ export default function Bots() {
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
             <Button variant="editorial" disabled={!!quota && !quota.allowed} title={quota && !quota.allowed ? "Upgrade to create more bots" : undefined}>
-              {quota && !quota.allowed ? <Lock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              <Plus className="h-4 w-4" />
               New bot
             </Button>
           </DialogTrigger>
@@ -171,15 +185,49 @@ export default function Bots() {
         </Dialog>
       </div>
 
-      {quota && !quota.allowed && (
-        <div className="mb-6 border border-primary/30 bg-primary/5 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="text-sm text-ink">
-            <strong className="capitalize">{quota.plan} plan</strong> — you're using {quota.current_bots} of {quota.max_bots} bot{quota.max_bots === 1 ? "" : "s"}.
-            Upgrade to create more.
+      {usage && (() => {
+        const botPct = Math.min(100, Math.round((usage.current_bots / Math.max(1, usage.max_bots)) * 100));
+        const msgPct = Math.min(100, Math.round((usage.monthly_messages / Math.max(1, usage.max_monthly_messages)) * 100));
+        const atBotCap = !!quota && !quota.allowed;
+        const resetDate = new Date(usage.period_end).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        return (
+          <div className="mb-6 border border-border rounded-lg bg-card p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+              <div className="text-sm text-ink-soft">
+                <span className="capitalize text-ink font-medium">{usage.plan} plan</span> · resets {resetDate}
+              </div>
+              {atBotCap && (
+                <Button variant="editorial" size="sm" onClick={() => (window.location.href = "/pricing")}>Upgrade plan</Button>
+              )}
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <div className="flex justify-between text-xs text-ink-soft mb-1">
+                  <span>Bots</span>
+                  <span>{usage.current_bots} / {usage.max_bots}</span>
+                </div>
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className={`h-full ${atBotCap ? "bg-destructive" : "bg-primary"}`} style={{ width: `${botPct}%` }} />
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-xs text-ink-soft mb-1">
+                  <span>Messages this month</span>
+                  <span>{usage.monthly_messages.toLocaleString()} / {usage.max_monthly_messages.toLocaleString()}</span>
+                </div>
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className={`h-full ${msgPct >= 100 ? "bg-destructive" : msgPct >= 80 ? "bg-amber-500" : "bg-primary"}`} style={{ width: `${msgPct}%` }} />
+                </div>
+              </div>
+            </div>
+            {atBotCap && (
+              <p className="text-xs text-ink-soft mt-3">
+                You've reached the bot limit for the {usage.plan} plan. <a href="/pricing" className="text-primary hover:underline">See plans →</a>
+              </p>
+            )}
           </div>
-          <Button variant="editorial" size="sm" onClick={() => (window.location.href = "/pricing")}>See plans</Button>
-        </div>
-      )}
+        );
+      })()}
 
       {bots.length === 0 ? (
         <div className="border border-dashed border-border rounded-lg p-12 text-center bg-paper-soft">
