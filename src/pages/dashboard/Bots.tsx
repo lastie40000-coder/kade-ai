@@ -48,6 +48,7 @@ export default function Bots() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Bot | null>(null);
   const [quota, setQuota] = useState<BotQuota | null>(null);
+  const [usage, setUsage] = useState<WorkspaceUsage | null>(null);
   const [form, setForm] = useState({
     name: "", description: "", telegram_bot_token: "",
     tone: "friendly", personality: "", house_rules: "", welcome_message: "",
@@ -56,12 +57,15 @@ export default function Bots() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const [{ data }, { data: quotaRows }] = await Promise.all([
+    const client = supabase as RpcClient;
+    const [{ data }, { data: quotaRows }, { data: usageRows }] = await Promise.all([
       supabase.from("bots").select("*").eq("owner_id", user.id).order("created_at", { ascending: false }),
-      (supabase as QuotaClient).rpc("my_bot_quota"),
+      client.rpc("my_bot_quota"),
+      client.rpc("my_workspace_usage"),
     ]);
     setBots(data ?? []);
     setQuota(Array.isArray(quotaRows) ? quotaRows[0] ?? null : quotaRows ?? null);
+    setUsage(Array.isArray(usageRows) ? usageRows[0] ?? null : usageRows ?? null);
   }, [user]);
   useEffect(() => { load(); }, [load]);
 
