@@ -25,9 +25,19 @@ type Bot = {
 };
 
 type BotQuota = { plan: string; current_bots: number; max_bots: number; allowed: boolean };
+type WorkspaceUsage = {
+  plan: string;
+  current_bots: number;
+  max_bots: number;
+  monthly_messages: number;
+  max_monthly_messages: number;
+  max_msgs_per_minute: number;
+  period_end: string;
+};
 
-type QuotaClient = typeof supabase & {
+type RpcClient = typeof supabase & {
   rpc(fn: "my_bot_quota"): Promise<{ data: BotQuota[] | null; error: unknown }>;
+  rpc(fn: "my_workspace_usage"): Promise<{ data: WorkspaceUsage[] | null; error: unknown }>;
 };
 
 const TONES = ["friendly", "professional", "witty", "strict", "hype"];
