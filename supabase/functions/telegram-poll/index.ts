@@ -602,15 +602,17 @@ async function processBot(supabase: any, bot: any, deadline: number) {
 
       if (bot.status !== "active") continue;
 
-      // In groups, respond when directly called, replied-to, or when the message clearly matches knowledge/group context.
+      // In groups, respond when directly called, replied-to, on greetings,
+      // when the message is a question, or when it clearly matches knowledge/group context.
       let autoKnowledge = "";
       if (isGroup) {
         const mentionedOrNamed = messageNamesBot(text, bot, me);
         const isReply = msg.reply_to_message?.from?.id === me.id;
         let shouldReply = Boolean(mentionedOrNamed || isReply);
+        if (!shouldReply && isGreeting(text)) shouldReply = true;
         if (!shouldReply && (isQuestionLike(text) || isGroupRelated(text, group, bot))) {
           autoKnowledge = await ragSnippets(supabase, bot.id, text, 5, false);
-          shouldReply = Boolean(autoKnowledge || isGroupRelated(text, group, bot));
+          shouldReply = Boolean(autoKnowledge || isGroupRelated(text, group, bot) || isQuestionLike(text));
         }
         if (!shouldReply) continue;
       }
