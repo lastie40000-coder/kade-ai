@@ -139,7 +139,7 @@ export default function Bots() {
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
           <DialogTrigger asChild>
             <Button variant="editorial" disabled={!!quota && !quota.allowed} title={quota && !quota.allowed ? "Upgrade to create more bots" : undefined}>
-              {quota && !quota.allowed ? <Lock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              <Plus className="h-4 w-4" />
               New bot
             </Button>
           </DialogTrigger>
