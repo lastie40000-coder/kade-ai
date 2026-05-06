@@ -113,7 +113,14 @@ function stripBotName(text: string, bot: any, me: { username: string | null; id:
 
 function isQuestionLike(text: string): boolean {
   const t = text.trim().toLowerCase();
-  return /\?$/.test(t) || /\b(what|who|when|where|why|how|can|could|should|do|does|did|is|are|am|will|would|tell me|explain|help)\b/i.test(t);
+  if (/[?¿]\s*$/.test(t)) return true;
+  // English + common question words across languages (es/fr/pt/de/it/sw/ar-translit/ru-translit/id/tr)
+  return /\b(what|who|when|where|why|how|can|could|should|do|does|did|is|are|am|will|would|tell me|explain|help|que|qué|cuál|cuándo|dónde|por\s?qué|cómo|quoi|quel|quand|où|pourquoi|comment|porque|qual|quando|onde|warum|wie|wer|wann|wo|cosa|perché|come|nini|nani|lini|wapi|kwa\s?nini|vipi|kak|chto|gde|kogda|pochemu|apa|siapa|kapan|dimana|mengapa|bagaimana|ne|nasıl|neden|nerede)\b/i.test(t);
+}
+
+function isGreeting(text: string): boolean {
+  const t = text.trim().toLowerCase().replace(/[!.?¡¿,]/g, "").slice(0, 60);
+  return /^(hi|hii+|hello|hey|yo|sup|hiya|howdy|good\s?(morning|afternoon|evening|night)|gm|gn|hola|buen[oa]s|salut|bonjour|bonsoir|coucou|ola|olá|oi|hallo|servus|moin|ciao|salve|buongiorno|habari|jambo|mambo|sasa|hujambo|salaam|salam|assalam[ou]\s?alaikum|marhaba|privet|zdravstvuyte|halo|hai|merhaba|selam|namaste|annyeong|konnichiwa|ohayo|ni\s?hao)\b/i.test(t);
 }
 
 function isGroupRelated(text: string, group: any | null, bot: any): boolean {
@@ -161,7 +168,8 @@ ${persona ? `Character: ${persona}\n` : ""}${groupCtx}${houseRules}${customInstr
 
 Reply rules:
 - Sound like a real person, not an AI assistant. NEVER say "as an AI" or "I'm just an AI".
-- Match the user's energy and length. One-liners get one-liners.
+- ALWAYS reply in the same language the user wrote in. Detect language from the latest message and mirror it (English, Spanish, French, Portuguese, Swahili, Arabic, German, Italian, Hindi, Chinese, etc.).
+- Match the user's energy and length. One-liners get one-liners. Greetings get a short friendly greeting back.
 - If a knowledge base is provided above, stick to it. Don't make up facts that aren't there.
 - If you genuinely don't know, say so plainly in one line.
 - Never apologize unprompted. Never say "I hope this helps".
@@ -594,15 +602,17 @@ async function processBot(supabase: any, bot: any, deadline: number) {
 
       if (bot.status !== "active") continue;
 
-      // In groups, respond when directly called, replied-to, or when the message clearly matches knowledge/group context.
+      // In groups, respond when directly called, replied-to, on greetings,
+      // when the message is a question, or when it clearly matches knowledge/group context.
       let autoKnowledge = "";
       if (isGroup) {
         const mentionedOrNamed = messageNamesBot(text, bot, me);
         const isReply = msg.reply_to_message?.from?.id === me.id;
         let shouldReply = Boolean(mentionedOrNamed || isReply);
+        if (!shouldReply && isGreeting(text)) shouldReply = true;
         if (!shouldReply && (isQuestionLike(text) || isGroupRelated(text, group, bot))) {
           autoKnowledge = await ragSnippets(supabase, bot.id, text, 5, false);
-          shouldReply = Boolean(autoKnowledge || isGroupRelated(text, group, bot));
+          shouldReply = Boolean(autoKnowledge || isGroupRelated(text, group, bot) || isQuestionLike(text));
         }
         if (!shouldReply) continue;
       }

@@ -171,6 +171,16 @@ export default function Bots() {
         </Dialog>
       </div>
 
+      {quota && !quota.allowed && (
+        <div className="mb-6 border border-primary/30 bg-primary/5 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="text-sm text-ink">
+            <strong className="capitalize">{quota.plan} plan</strong> — you're using {quota.current_bots} of {quota.max_bots} bot{quota.max_bots === 1 ? "" : "s"}.
+            Upgrade to create more.
+          </div>
+          <Button variant="editorial" size="sm" onClick={() => (window.location.href = "/pricing")}>See plans</Button>
+        </div>
+      )}
+
       {bots.length === 0 ? (
         <div className="border border-dashed border-border rounded-lg p-12 text-center bg-paper-soft">
           <BotIcon className="h-8 w-8 text-ink-soft mx-auto mb-3" />
