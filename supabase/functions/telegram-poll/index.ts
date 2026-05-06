@@ -610,9 +610,16 @@ async function processBot(supabase: any, bot: any, deadline: number) {
         const isReply = msg.reply_to_message?.from?.id === me.id;
         let shouldReply = Boolean(mentionedOrNamed || isReply);
         if (!shouldReply && isGreeting(text)) shouldReply = true;
-        if (!shouldReply && (isQuestionLike(text) || isGroupRelated(text, group, bot))) {
+
+        // Always probe the knowledge base for substantive messages — if the bot's
+        // own notes cover this topic, it should jump in even without being tagged.
+        const probeWorthy = text.trim().length >= 4 && !/^[\/!]/.test(text);
+        if (!shouldReply && probeWorthy) {
           autoKnowledge = await ragSnippets(supabase, bot.id, text, 5, false);
-          shouldReply = Boolean(autoKnowledge || isGroupRelated(text, group, bot) || isQuestionLike(text));
+          if (autoKnowledge) shouldReply = true;
+        }
+        if (!shouldReply && (isQuestionLike(text) || isGroupRelated(text, group, bot))) {
+          shouldReply = true;
         }
         if (!shouldReply) continue;
       }
