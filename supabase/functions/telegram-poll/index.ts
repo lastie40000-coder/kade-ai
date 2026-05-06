@@ -113,7 +113,14 @@ function stripBotName(text: string, bot: any, me: { username: string | null; id:
 
 function isQuestionLike(text: string): boolean {
   const t = text.trim().toLowerCase();
-  return /\?$/.test(t) || /\b(what|who|when|where|why|how|can|could|should|do|does|did|is|are|am|will|would|tell me|explain|help)\b/i.test(t);
+  if (/[?¿]\s*$/.test(t)) return true;
+  // English + common question words across languages (es/fr/pt/de/it/sw/ar-translit/ru-translit/id/tr)
+  return /\b(what|who|when|where|why|how|can|could|should|do|does|did|is|are|am|will|would|tell me|explain|help|que|qué|cuál|cuándo|dónde|por\s?qué|cómo|quoi|quel|quand|où|pourquoi|comment|porque|qual|quando|onde|warum|wie|wer|wann|wo|cosa|perché|come|nini|nani|lini|wapi|kwa\s?nini|vipi|kak|chto|gde|kogda|pochemu|apa|siapa|kapan|dimana|mengapa|bagaimana|ne|nasıl|neden|nerede)\b/i.test(t);
+}
+
+function isGreeting(text: string): boolean {
+  const t = text.trim().toLowerCase().replace(/[!.?¡¿,]/g, "").slice(0, 60);
+  return /^(hi|hii+|hello|hey|yo|sup|hiya|howdy|good\s?(morning|afternoon|evening|night)|gm|gn|hola|buen[oa]s|salut|bonjour|bonsoir|coucou|ola|olá|oi|hallo|servus|moin|ciao|salve|buongiorno|habari|jambo|mambo|sasa|hujambo|salaam|salam|assalam[ou]\s?alaikum|marhaba|privet|zdravstvuyte|halo|hai|merhaba|selam|namaste|annyeong|konnichiwa|ohayo|ni\s?hao)\b/i.test(t);
 }
 
 function isGroupRelated(text: string, group: any | null, bot: any): boolean {
