@@ -563,6 +563,19 @@ export type Database = {
           plan: Database["public"]["Enums"]["plan_tier"]
         }[]
       }
+      my_workspace_usage: {
+        Args: never
+        Returns: {
+          current_bots: number
+          max_bots: number
+          max_monthly_messages: number
+          max_msgs_per_minute: number
+          monthly_messages: number
+          period_end: string
+          period_start: string
+          plan: Database["public"]["Enums"]["plan_tier"]
+        }[]
+      }
       plan_limits: {
         Args: { _plan: Database["public"]["Enums"]["plan_tier"] }
         Returns: {
