@@ -22,6 +22,10 @@ type Bot = {
   house_rules: string | null;
   welcome_message: string | null;
   bot_username: string | null;
+  banned_words: string[] | null;
+  anti_flood_enabled: boolean;
+  anti_spam_enabled: boolean;
+  flood_sensitivity: number;
 };
 
 type BotQuota = { plan: string; current_bots: number; max_bots: number; allowed: boolean };
@@ -52,7 +56,8 @@ export default function Bots() {
   const [form, setForm] = useState({
     name: "", description: "", telegram_bot_token: "",
     tone: "friendly", personality: "", house_rules: "", welcome_message: "",
-    default_instructions: "",
+    default_instructions: "", banned_words: "",
+    anti_flood_enabled: false, anti_spam_enabled: false, flood_sensitivity: 5,
   });
 
   const load = useCallback(async () => {
@@ -70,7 +75,11 @@ export default function Bots() {
   useEffect(() => { load(); }, [load]);
 
   const reset = () => {
-    setForm({ name: "", description: "", telegram_bot_token: "", tone: "friendly", personality: "", house_rules: "", welcome_message: "", default_instructions: "" });
+    setForm({
+      name: "", description: "", telegram_bot_token: "", tone: "friendly", personality: "",
+      house_rules: "", welcome_message: "", default_instructions: "", banned_words: "",
+      anti_flood_enabled: false, anti_spam_enabled: false, flood_sensitivity: 5
+    });
     setEditing(null);
   };
 
@@ -82,12 +91,18 @@ export default function Bots() {
         action: { label: "See plans", onClick: () => (window.location.href = "/pricing") },
       });
     }
+
+    const payload = {
+      ...form,
+      banned_words: form.banned_words.split(",").map(w => w.trim()).filter(Boolean)
+    };
+
     if (editing) {
-      const { error } = await supabase.from("bots").update(form).eq("id", editing.id);
+      const { error } = await supabase.from("bots").update(payload).eq("id", editing.id);
       if (error) return toast.error(error.message);
       toast.success("Bot updated");
     } else {
-      const { error } = await supabase.from("bots").insert({ ...form, owner_id: user.id, status: "active" });
+      const { error } = await supabase.from("bots").insert({ ...payload, owner_id: user.id, status: "active" });
       if (error) {
         if (error.message?.includes("PLAN_LIMIT_BOTS")) {
           return toast.error("You've hit your plan's bot limit. Upgrade to add more.", {
@@ -124,6 +139,10 @@ export default function Bots() {
       house_rules: b.house_rules ?? "",
       welcome_message: b.welcome_message ?? "",
       default_instructions: b.default_instructions ?? "",
+      banned_words: (b.banned_words || []).join(", "),
+      anti_flood_enabled: b.anti_flood_enabled ?? false,
+      anti_spam_enabled: b.anti_spam_enabled ?? false,
+      flood_sensitivity: b.flood_sensitivity ?? 5,
     });
     setOpen(true);
   };
@@ -146,35 +165,86 @@ export default function Bots() {
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle className="font-display">{editing ? "Edit bot" : "Create a bot"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={80} /></div>
-              <div><Label>Short description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={500} rows={2} /></div>
+              <div><Label htmlFor="bot-name">Name</Label><Input id="bot-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={80} /></div>
+              <div><Label htmlFor="bot-description">Short description</Label><Textarea id="bot-description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={500} rows={2} /></div>
               <div>
-                <Label>Telegram Bot Token</Label>
-                <Input value={form.telegram_bot_token} onChange={(e) => setForm({ ...form, telegram_bot_token: e.target.value })} placeholder="123456:ABC-DEF…" />
+                <Label htmlFor="bot-token">Telegram Bot Token</Label>
+                <Input id="bot-token" value={form.telegram_bot_token} onChange={(e) => setForm({ ...form, telegram_bot_token: e.target.value })} placeholder="123456:ABC-DEF…" />
                 <p className="text-xs text-ink-soft mt-1">From @BotFather on Telegram.</p>
               </div>
               <div>
-                <Label>Tone</Label>
+                <Label htmlFor="bot-tone">Tone</Label>
                 <Select value={form.tone} onValueChange={(v) => setForm({ ...form, tone: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="bot-tone"><SelectValue /></SelectTrigger>
                   <SelectContent>{TONES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Personality (one line)</Label>
-                <Input value={form.personality} onChange={(e) => setForm({ ...form, personality: e.target.value })} maxLength={500} placeholder="Sassy librarian who loves indie rock" />
+                <Label htmlFor="bot-personality">Personality (one line)</Label>
+                <Input id="bot-personality" value={form.personality} onChange={(e) => setForm({ ...form, personality: e.target.value })} maxLength={500} placeholder="Sassy librarian who loves indie rock" />
               </div>
               <div>
-                <Label>House rules</Label>
-                <Textarea value={form.house_rules} onChange={(e) => setForm({ ...form, house_rules: e.target.value })} rows={3} maxLength={2000} placeholder="Be kind. No spam. English only." />
+                <Label htmlFor="bot-rules">House rules</Label>
+                <Textarea id="bot-rules" value={form.house_rules} onChange={(e) => setForm({ ...form, house_rules: e.target.value })} rows={3} maxLength={2000} placeholder="Be kind. No spam. English only." />
               </div>
               <div>
-                <Label>Welcome message (use {"{name}"} for new member)</Label>
-                <Textarea value={form.welcome_message} onChange={(e) => setForm({ ...form, welcome_message: e.target.value })} rows={2} maxLength={1000} placeholder="Hey {name}, welcome to the group!" />
+                <Label htmlFor="bot-banned">Banned words (comma separated)</Label>
+                <Textarea id="bot-banned" value={form.banned_words} onChange={(e) => setForm({ ...form, banned_words: e.target.value })} rows={2} maxLength={1000} placeholder="spam, crypto, nigerian prince" />
               </div>
               <div>
-                <Label>Extra instructions (optional)</Label>
-                <Textarea value={form.default_instructions} onChange={(e) => setForm({ ...form, default_instructions: e.target.value })} rows={3} maxLength={2000} />
+                <Label htmlFor="bot-welcome">Welcome message (use {"{name}"} for new member)</Label>
+                <Textarea id="bot-welcome" value={form.welcome_message} onChange={(e) => setForm({ ...form, welcome_message: e.target.value })} rows={2} maxLength={1000} placeholder="Hey {name}, welcome to the group!" />
+              </div>
+              <div>
+                <Label htmlFor="bot-instructions">Extra instructions (optional)</Label>
+                <Textarea id="bot-instructions" value={form.default_instructions} onChange={(e) => setForm({ ...form, default_instructions: e.target.value })} rows={3} maxLength={2000} />
+              </div>
+
+              <div className="pt-4 border-t border-border">
+                <div className="flex items-center gap-2 mb-4">
+                  <ShieldAlert className="h-4 w-4 text-primary" />
+                  <span className="font-display text-lg">Protection</span>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="anti-spam">Anti-Spam</Label>
+                      <p className="text-xs text-ink-soft">Delete identical consecutive messages</p>
+                    </div>
+                    <Switch
+                      id="anti-spam"
+                      checked={form.anti_spam_enabled}
+                      onCheckedChange={(v) => setForm({ ...form, anti_spam_enabled: v })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="anti-flood">Anti-Flood</Label>
+                      <p className="text-xs text-ink-soft">Delete rapid bursts of messages</p>
+                    </div>
+                    <Switch
+                      id="anti-flood"
+                      checked={form.anti_flood_enabled}
+                      onCheckedChange={(v) => setForm({ ...form, anti_flood_enabled: v })}
+                    />
+                  </div>
+
+                  {form.anti_flood_enabled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="flood-sensitivity">Flood Sensitivity (max msgs / 10s)</Label>
+                      <Input
+                        id="flood-sensitivity"
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={form.flood_sensitivity}
+                        onChange={(e) => setForm({ ...form, flood_sensitivity: parseInt(e.target.value) || 5 })}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -258,8 +328,8 @@ export default function Bots() {
               </div>
               <div className="flex gap-2 flex-wrap">
                 <Button variant="outline" size="sm" onClick={() => toggleStatus(b)}>{b.status === "active" ? "Pause" : "Activate"}</Button>
-                <Button variant="ghost" size="icon" onClick={() => startEdit(b)}><Edit3 className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => startEdit(b)} aria-label="Edit bot"><Edit3 className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => remove(b.id)} aria-label="Delete bot"><Trash2 className="h-4 w-4 text-destructive" /></Button>
               </div>
             </div>
           ))}
