@@ -62,6 +62,31 @@ export default function DashboardHome() {
           Go to Bots →
         </Link>
       </div>
+
+      <div className="mt-8 grid md:grid-cols-2 gap-8">
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h3 className="font-display text-xl text-ink mb-4">Owner DM commands</h3>
+          <ul className="space-y-2 text-sm text-ink-soft font-mono">
+            <li>/settone &lt;tone&gt;</li>
+            <li>/setpersona &lt;description&gt;</li>
+            <li>/addknow &lt;text&gt;</li>
+            <li>/addurl &lt;url&gt;</li>
+            <li>/modon | /modoff</li>
+            <li>/banword &lt;word&gt;</li>
+          </ul>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h3 className="font-display text-xl text-ink mb-4">Group commands</h3>
+          <ul className="space-y-2 text-sm text-ink-soft font-mono">
+            <li>/ban (reply to user)</li>
+            <li>/kick (reply to user)</li>
+            <li>/mute (reply to user)</li>
+            <li>/warn (reply to user)</li>
+            <li>/del (reply to user)</li>
+            <li>/pin (reply to user)</li>
+          </ul>
+        </div>
+      </div>
     </DashboardLayout>
   );
 }

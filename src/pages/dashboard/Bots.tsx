@@ -22,6 +22,7 @@ type Bot = {
   house_rules: string | null;
   welcome_message: string | null;
   bot_username: string | null;
+  banned_words: string[] | null;
 };
 
 type BotQuota = { plan: string; current_bots: number; max_bots: number; allowed: boolean };
@@ -52,7 +53,7 @@ export default function Bots() {
   const [form, setForm] = useState({
     name: "", description: "", telegram_bot_token: "",
     tone: "friendly", personality: "", house_rules: "", welcome_message: "",
-    default_instructions: "",
+    default_instructions: "", banned_words: "",
   });
 
   const load = useCallback(async () => {
@@ -70,7 +71,7 @@ export default function Bots() {
   useEffect(() => { load(); }, [load]);
 
   const reset = () => {
-    setForm({ name: "", description: "", telegram_bot_token: "", tone: "friendly", personality: "", house_rules: "", welcome_message: "", default_instructions: "" });
+    setForm({ name: "", description: "", telegram_bot_token: "", tone: "friendly", personality: "", house_rules: "", welcome_message: "", default_instructions: "", banned_words: "" });
     setEditing(null);
   };
 
@@ -82,12 +83,18 @@ export default function Bots() {
         action: { label: "See plans", onClick: () => (window.location.href = "/pricing") },
       });
     }
+
+    const payload = {
+      ...form,
+      banned_words: form.banned_words.split(",").map(w => w.trim()).filter(Boolean)
+    };
+
     if (editing) {
-      const { error } = await supabase.from("bots").update(form).eq("id", editing.id);
+      const { error } = await supabase.from("bots").update(payload).eq("id", editing.id);
       if (error) return toast.error(error.message);
       toast.success("Bot updated");
     } else {
-      const { error } = await supabase.from("bots").insert({ ...form, owner_id: user.id, status: "active" });
+      const { error } = await supabase.from("bots").insert({ ...payload, owner_id: user.id, status: "active" });
       if (error) {
         if (error.message?.includes("PLAN_LIMIT_BOTS")) {
           return toast.error("You've hit your plan's bot limit. Upgrade to add more.", {
@@ -124,6 +131,7 @@ export default function Bots() {
       house_rules: b.house_rules ?? "",
       welcome_message: b.welcome_message ?? "",
       default_instructions: b.default_instructions ?? "",
+      banned_words: (b.banned_words || []).join(", "),
     });
     setOpen(true);
   };
@@ -167,6 +175,10 @@ export default function Bots() {
               <div>
                 <Label htmlFor="bot-rules">House rules</Label>
                 <Textarea id="bot-rules" value={form.house_rules} onChange={(e) => setForm({ ...form, house_rules: e.target.value })} rows={3} maxLength={2000} placeholder="Be kind. No spam. English only." />
+              </div>
+              <div>
+                <Label htmlFor="bot-banned">Banned words (comma separated)</Label>
+                <Textarea id="bot-banned" value={form.banned_words} onChange={(e) => setForm({ ...form, banned_words: e.target.value })} rows={2} maxLength={1000} placeholder="spam, crypto, nigerian prince" />
               </div>
               <div>
                 <Label htmlFor="bot-welcome">Welcome message (use {"{name}"} for new member)</Label>
