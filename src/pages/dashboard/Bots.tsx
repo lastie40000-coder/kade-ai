@@ -146,35 +146,35 @@ export default function Bots() {
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle className="font-display">{editing ? "Edit bot" : "Create a bot"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={80} /></div>
-              <div><Label>Short description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={500} rows={2} /></div>
+              <div><Label htmlFor="bot-name">Name</Label><Input id="bot-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={80} /></div>
+              <div><Label htmlFor="bot-description">Short description</Label><Textarea id="bot-description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={500} rows={2} /></div>
               <div>
-                <Label>Telegram Bot Token</Label>
-                <Input value={form.telegram_bot_token} onChange={(e) => setForm({ ...form, telegram_bot_token: e.target.value })} placeholder="123456:ABC-DEF…" />
+                <Label htmlFor="bot-token">Telegram Bot Token</Label>
+                <Input id="bot-token" value={form.telegram_bot_token} onChange={(e) => setForm({ ...form, telegram_bot_token: e.target.value })} placeholder="123456:ABC-DEF…" />
                 <p className="text-xs text-ink-soft mt-1">From @BotFather on Telegram.</p>
               </div>
               <div>
-                <Label>Tone</Label>
+                <Label htmlFor="bot-tone">Tone</Label>
                 <Select value={form.tone} onValueChange={(v) => setForm({ ...form, tone: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="bot-tone"><SelectValue /></SelectTrigger>
                   <SelectContent>{TONES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Personality (one line)</Label>
-                <Input value={form.personality} onChange={(e) => setForm({ ...form, personality: e.target.value })} maxLength={500} placeholder="Sassy librarian who loves indie rock" />
+                <Label htmlFor="bot-personality">Personality (one line)</Label>
+                <Input id="bot-personality" value={form.personality} onChange={(e) => setForm({ ...form, personality: e.target.value })} maxLength={500} placeholder="Sassy librarian who loves indie rock" />
               </div>
               <div>
-                <Label>House rules</Label>
-                <Textarea value={form.house_rules} onChange={(e) => setForm({ ...form, house_rules: e.target.value })} rows={3} maxLength={2000} placeholder="Be kind. No spam. English only." />
+                <Label htmlFor="bot-rules">House rules</Label>
+                <Textarea id="bot-rules" value={form.house_rules} onChange={(e) => setForm({ ...form, house_rules: e.target.value })} rows={3} maxLength={2000} placeholder="Be kind. No spam. English only." />
               </div>
               <div>
-                <Label>Welcome message (use {"{name}"} for new member)</Label>
-                <Textarea value={form.welcome_message} onChange={(e) => setForm({ ...form, welcome_message: e.target.value })} rows={2} maxLength={1000} placeholder="Hey {name}, welcome to the group!" />
+                <Label htmlFor="bot-welcome">Welcome message (use {"{name}"} for new member)</Label>
+                <Textarea id="bot-welcome" value={form.welcome_message} onChange={(e) => setForm({ ...form, welcome_message: e.target.value })} rows={2} maxLength={1000} placeholder="Hey {name}, welcome to the group!" />
               </div>
               <div>
-                <Label>Extra instructions (optional)</Label>
-                <Textarea value={form.default_instructions} onChange={(e) => setForm({ ...form, default_instructions: e.target.value })} rows={3} maxLength={2000} />
+                <Label htmlFor="bot-instructions">Extra instructions (optional)</Label>
+                <Textarea id="bot-instructions" value={form.default_instructions} onChange={(e) => setForm({ ...form, default_instructions: e.target.value })} rows={3} maxLength={2000} />
               </div>
             </div>
             <DialogFooter>
@@ -258,8 +258,8 @@ export default function Bots() {
               </div>
               <div className="flex gap-2 flex-wrap">
                 <Button variant="outline" size="sm" onClick={() => toggleStatus(b)}>{b.status === "active" ? "Pause" : "Activate"}</Button>
-                <Button variant="ghost" size="icon" onClick={() => startEdit(b)}><Edit3 className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => startEdit(b)} aria-label="Edit bot"><Edit3 className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => remove(b.id)} aria-label="Delete bot"><Trash2 className="h-4 w-4 text-destructive" /></Button>
               </div>
             </div>
           ))}
