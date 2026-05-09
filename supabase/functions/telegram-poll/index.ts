@@ -240,6 +240,31 @@ function containsBannedWord(text: string, bannedBot: string[], bannedGroup: stri
   return all.find(w => lower.includes(w)) || null;
 }
 
+async function checkFlood(supabase: any, botId: string, telegramUser: string, sensitivity: number): Promise<boolean> {
+  const windowSeconds = 10;
+  const sinceIso = new Date(Date.now() - windowSeconds * 1000).toISOString();
+  const { count } = await supabase
+    .from("bot_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("bot_id", botId)
+    .eq("telegram_user", telegramUser)
+    .eq("direction", "inbound")
+    .gte("created_at", sinceIso);
+  return (count ?? 0) >= sensitivity;
+}
+
+async function checkSpam(supabase: any, botId: string, telegramUser: string, content: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("bot_messages")
+    .select("content")
+    .eq("bot_id", botId)
+    .eq("telegram_user", telegramUser)
+    .eq("direction", "inbound")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  return data?.[0]?.content === content;
+}
+
 async function ensureGroup(supabase: any, bot: any, msg: any) {
   const chat = msg.chat;
   if (chat.type !== "group" && chat.type !== "supergroup") return null;
@@ -563,17 +588,37 @@ async function processBot(supabase: any, bot: any, deadline: number) {
         processed++; continue;
       }
 
-      // 3) Auto-register group (silent) + auto-filter banned words
+      // 3) Auto-register group (silent) + auto-filter moderation
       let group: any = null;
       if (isGroup) {
         group = await ensureGroup(supabase, bot, msg);
         if (bot.moderation_enabled && (group?.moderation_enabled !== false)) {
+          const telegramUser = msg.from?.username || msg.from?.first_name || String(msg.from?.id || "");
+
+          // Anti-Spam
+          if (bot.anti_spam_enabled && await checkSpam(supabase, bot.id, telegramUser, msg.text)) {
+            const r = await tg(bot.telegram_bot_token, "deleteMessage", { chat_id: msg.chat.id, message_id: msg.message_id });
+            await logMod(supabase, bot, msg.chat.id, "anti_spam", {
+              target_user: telegramUser, target_user_id: msg.from?.id, success: r.ok,
+            });
+            continue;
+          }
+
+          // Anti-Flood
+          if (bot.anti_flood_enabled && await checkFlood(supabase, bot.id, telegramUser, bot.flood_sensitivity || 5)) {
+            const r = await tg(bot.telegram_bot_token, "deleteMessage", { chat_id: msg.chat.id, message_id: msg.message_id });
+            await logMod(supabase, bot, msg.chat.id, "anti_flood", {
+              target_user: telegramUser, target_user_id: msg.from?.id, success: r.ok,
+            });
+            continue;
+          }
+
+          // Banned Words
           const hit = containsBannedWord(msg.text, bot.banned_words || [], group?.banned_words || []);
           if (hit) {
             const r = await tg(bot.telegram_bot_token, "deleteMessage", { chat_id: msg.chat.id, message_id: msg.message_id });
             await logMod(supabase, bot, msg.chat.id, "filter_word", {
-              target_user: msg.from?.username ? `@${msg.from.username}` : msg.from?.first_name,
-              target_user_id: msg.from?.id, reason: hit, success: r.ok,
+              target_user: telegramUser, target_user_id: msg.from?.id, reason: hit, success: r.ok,
             });
             continue;
           }
@@ -662,12 +707,14 @@ async function processBot(supabase: any, bot: any, deadline: number) {
 
       try {
         const cleanText = isGroup ? stripBotName(text, bot, me) : text.trim();
-        const [knowledge, kExists] = await Promise.all([
+        const [knowledgeResult, kExists] = await Promise.all([
           autoKnowledge ? Promise.resolve(autoKnowledge) : ragSnippets(supabase, bot.id, cleanText, 6),
           hasKnowledge(supabase, bot.id),
         ]);
-        const system = buildSystemPrompt(bot, group, knowledge, kExists);
+
+        const system = buildSystemPrompt(bot, group, knowledgeResult, kExists);
         const reply = await askAI(system, cleanText);
+
         if (reply) {
           await send(bot.telegram_bot_token, msg.chat.id, reply, msg.message_id);
           await supabase.from("bot_messages").insert({

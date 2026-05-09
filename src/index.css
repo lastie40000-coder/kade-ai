@@ -8,58 +8,58 @@
 
 @layer base {
   :root {
-    /* Warm paper / ink palette */
-    --background: 39 38% 96%;          /* warm off-white #f7f3ec-ish */
-    --foreground: 25 18% 14%;          /* deep ink */
+    /* Pure White & Telegram Blue palette */
+    --background: 0 0% 100%;          /* white */
+    --foreground: 215 25% 10%;         /* neutral dark */
 
-    --card: 40 50% 98%;
-    --card-foreground: 25 18% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 10%;
 
-    --popover: 40 50% 98%;
-    --popover-foreground: 25 18% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 10%;
 
-    /* Burnt sienna / terracotta accent */
-    --primary: 14 64% 42%;
-    --primary-foreground: 40 50% 98%;
+    /* Telegram Blue accent */
+    --primary: 203 88% 53%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 36 30% 90%;
-    --secondary-foreground: 25 18% 14%;
+    --secondary: 215 20% 96%;
+    --secondary-foreground: 215 25% 10%;
 
-    --muted: 36 25% 92%;
-    --muted-foreground: 25 10% 38%;
+    --muted: 215 20% 96%;
+    --muted-foreground: 215 15% 45%;
 
-    --accent: 30 40% 88%;
-    --accent-foreground: 25 18% 14%;
+    --accent: 215 20% 94%;
+    --accent-foreground: 215 25% 10%;
 
-    --destructive: 0 65% 48%;
-    --destructive-foreground: 40 50% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 30 20% 85%;
-    --input: 30 20% 85%;
-    --ring: 14 64% 42%;
+    --border: 215 20% 90%;
+    --input: 215 20% 90%;
+    --ring: 203 88% 53%;
 
     --radius: 0.625rem;
 
-    /* Editorial extras */
-    --ink: 25 18% 14%;
-    --ink-soft: 25 12% 28%;
-    --paper: 39 38% 96%;
-    --paper-soft: 36 30% 92%;
+    /* Editorial extras - updated for white theme */
+    --ink: 215 25% 10%;
+    --ink-soft: 215 15% 45%;
+    --paper: 0 0% 100%;
+    --paper-soft: 215 20% 97%;
     --gold: 36 65% 52%;
 
-    --gradient-warm: linear-gradient(135deg, hsl(36 60% 94%), hsl(20 50% 90%));
-    --gradient-ink: linear-gradient(180deg, hsl(25 18% 14%), hsl(25 25% 8%));
-    --shadow-soft: 0 1px 2px hsl(25 18% 14% / 0.04), 0 8px 24px -12px hsl(25 18% 14% / 0.12);
-    --shadow-lift: 0 2px 4px hsl(25 18% 14% / 0.06), 0 20px 40px -16px hsl(25 18% 14% / 0.18);
+    --gradient-warm: linear-gradient(135deg, hsl(215 20% 100%), hsl(215 20% 96%));
+    --gradient-ink: linear-gradient(180deg, hsl(215 25% 10%), hsl(215 25% 5%));
+    --shadow-soft: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-lift: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
 
-    --sidebar-background: 40 50% 98%;
-    --sidebar-foreground: 25 18% 14%;
-    --sidebar-primary: 14 64% 42%;
-    --sidebar-primary-foreground: 40 50% 98%;
-    --sidebar-accent: 36 25% 92%;
-    --sidebar-accent-foreground: 25 18% 14%;
-    --sidebar-border: 30 20% 85%;
-    --sidebar-ring: 14 64% 42%;
+    --sidebar-background: 215 20% 98%;
+    --sidebar-foreground: 215 25% 10%;
+    --sidebar-primary: 203 88% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 20% 94%;
+    --sidebar-accent-foreground: 215 25% 10%;
+    --sidebar-border: 215 20% 90%;
+    --sidebar-ring: 203 88% 53%;
   }
 
   .dark {
