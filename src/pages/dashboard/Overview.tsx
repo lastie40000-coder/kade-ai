@@ -3,25 +3,32 @@ import { Link } from "react-router-dom";
 import DashboardLayout from "@/components/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Bot, Users, MessageSquare, BookOpen } from "lucide-react";
+import { Bot, Users, MessageSquare, BookOpen, ShieldCheck, ShieldAlert } from "lucide-react";
 
 export default function DashboardHome() {
   const { user } = useAuth();
   const [stats, setStats] = useState({ bots: 0, groups: 0, messages: 0, knowledge: 0 });
   const [plan, setPlan] = useState<string>("free");
+  const [security, setSecurity] = useState({ spam: 0, flood: 0, total: 0 });
 
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [b, g, m, k, s] = await Promise.all([
+      const [b, g, m, k, s, botsData] = await Promise.all([
         supabase.from("bots").select("id", { count: "exact", head: true }).eq("owner_id", user.id),
         supabase.from("telegram_groups").select("id", { count: "exact", head: true }).eq("owner_id", user.id),
         supabase.from("bot_messages").select("id", { count: "exact", head: true }).eq("owner_id", user.id),
         supabase.from("knowledge_sources").select("id", { count: "exact", head: true }).eq("owner_id", user.id),
         supabase.from("subscriptions").select("plan").eq("user_id", user.id).maybeSingle(),
+        supabase.from("bots").select("anti_spam_enabled, anti_flood_enabled").eq("owner_id", user.id),
       ]);
+
       setStats({ bots: b.count ?? 0, groups: g.count ?? 0, messages: m.count ?? 0, knowledge: k.count ?? 0 });
       if (s.data?.plan) setPlan(s.data.plan);
+
+      const spam = (botsData.data || []).filter(b => b.anti_spam_enabled).length;
+      const flood = (botsData.data || []).filter(b => b.anti_flood_enabled).length;
+      setSecurity({ spam, flood, total: botsData.data?.length || 0 });
     })();
   }, [user]);
 
@@ -61,6 +68,36 @@ export default function DashboardHome() {
         <Link to="/dashboard/bots" className="inline-block mt-4 text-sm text-primary font-medium hover:underline">
           Go to Bots →
         </Link>
+      </div>
+
+      <div className="mt-8 grid md:grid-cols-3 gap-4">
+        <div className="border border-border bg-card rounded-lg p-5 flex items-center gap-4">
+          <div className={`p-2 rounded-full ${security.spam === security.total && security.total > 0 ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"}`}>
+            {security.spam === security.total && security.total > 0 ? <ShieldCheck className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-widest text-ink-soft">Anti-Spam</div>
+            <div className="font-display text-xl text-ink">{security.spam}/{security.total} bots</div>
+          </div>
+        </div>
+        <div className="border border-border bg-card rounded-lg p-5 flex items-center gap-4">
+          <div className={`p-2 rounded-full ${security.flood === security.total && security.total > 0 ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"}`}>
+            {security.flood === security.total && security.total > 0 ? <ShieldCheck className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-widest text-ink-soft">Anti-Flood</div>
+            <div className="font-display text-xl text-ink">{security.flood}/{security.total} bots</div>
+          </div>
+        </div>
+        <div className="border border-border bg-card rounded-lg p-5 flex items-center gap-4">
+          <div className="p-2 rounded-full bg-blue-100 text-blue-600">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-widest text-ink-soft">AI Protection</div>
+            <div className="font-display text-xl text-ink">Active</div>
+          </div>
+        </div>
       </div>
 
       <div className="mt-8 grid md:grid-cols-2 gap-8">

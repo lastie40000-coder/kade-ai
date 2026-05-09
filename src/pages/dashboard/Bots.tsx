@@ -23,6 +23,9 @@ type Bot = {
   welcome_message: string | null;
   bot_username: string | null;
   banned_words: string[] | null;
+  anti_flood_enabled: boolean;
+  anti_spam_enabled: boolean;
+  flood_sensitivity: number;
 };
 
 type BotQuota = { plan: string; current_bots: number; max_bots: number; allowed: boolean };
@@ -54,6 +57,7 @@ export default function Bots() {
     name: "", description: "", telegram_bot_token: "",
     tone: "friendly", personality: "", house_rules: "", welcome_message: "",
     default_instructions: "", banned_words: "",
+    anti_flood_enabled: false, anti_spam_enabled: false, flood_sensitivity: 5,
   });
 
   const load = useCallback(async () => {
@@ -71,7 +75,11 @@ export default function Bots() {
   useEffect(() => { load(); }, [load]);
 
   const reset = () => {
-    setForm({ name: "", description: "", telegram_bot_token: "", tone: "friendly", personality: "", house_rules: "", welcome_message: "", default_instructions: "", banned_words: "" });
+    setForm({
+      name: "", description: "", telegram_bot_token: "", tone: "friendly", personality: "",
+      house_rules: "", welcome_message: "", default_instructions: "", banned_words: "",
+      anti_flood_enabled: false, anti_spam_enabled: false, flood_sensitivity: 5
+    });
     setEditing(null);
   };
 
@@ -132,6 +140,9 @@ export default function Bots() {
       welcome_message: b.welcome_message ?? "",
       default_instructions: b.default_instructions ?? "",
       banned_words: (b.banned_words || []).join(", "),
+      anti_flood_enabled: b.anti_flood_enabled ?? false,
+      anti_spam_enabled: b.anti_spam_enabled ?? false,
+      flood_sensitivity: b.flood_sensitivity ?? 5,
     });
     setOpen(true);
   };
@@ -187,6 +198,53 @@ export default function Bots() {
               <div>
                 <Label htmlFor="bot-instructions">Extra instructions (optional)</Label>
                 <Textarea id="bot-instructions" value={form.default_instructions} onChange={(e) => setForm({ ...form, default_instructions: e.target.value })} rows={3} maxLength={2000} />
+              </div>
+
+              <div className="pt-4 border-t border-border">
+                <div className="flex items-center gap-2 mb-4">
+                  <ShieldAlert className="h-4 w-4 text-primary" />
+                  <span className="font-display text-lg">Protection</span>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="anti-spam">Anti-Spam</Label>
+                      <p className="text-xs text-ink-soft">Delete identical consecutive messages</p>
+                    </div>
+                    <Switch
+                      id="anti-spam"
+                      checked={form.anti_spam_enabled}
+                      onCheckedChange={(v) => setForm({ ...form, anti_spam_enabled: v })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="anti-flood">Anti-Flood</Label>
+                      <p className="text-xs text-ink-soft">Delete rapid bursts of messages</p>
+                    </div>
+                    <Switch
+                      id="anti-flood"
+                      checked={form.anti_flood_enabled}
+                      onCheckedChange={(v) => setForm({ ...form, anti_flood_enabled: v })}
+                    />
+                  </div>
+
+                  {form.anti_flood_enabled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="flood-sensitivity">Flood Sensitivity (max msgs / 10s)</Label>
+                      <Input
+                        id="flood-sensitivity"
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={form.flood_sensitivity}
+                        onChange={(e) => setForm({ ...form, flood_sensitivity: parseInt(e.target.value) || 5 })}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <DialogFooter>
