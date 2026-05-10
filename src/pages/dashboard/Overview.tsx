@@ -1,34 +1,38 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import DashboardLayout from "@/components/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Bot, Users, MessageSquare, BookOpen, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Bot, Users, MessageSquare, BookOpen, PlusCircle, Settings, Sparkles, ArrowRight, Shield, AlertTriangle, CheckCircle2 } from "lucide-react";
+
+type BotSetup = {
+  id: string;
+  telegram_bot_token: string | null;
+  welcome_message: string | null;
+  banned_words: string[] | null;
+};
 
 export default function DashboardHome() {
   const { user } = useAuth();
   const [stats, setStats] = useState({ bots: 0, groups: 0, messages: 0, knowledge: 0 });
   const [plan, setPlan] = useState<string>("free");
-  const [security, setSecurity] = useState({ spam: 0, flood: 0, total: 0 });
+  const [botSetup, setBotSetup] = useState<BotSetup[]>([]);
 
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [b, g, m, k, s, botsData] = await Promise.all([
+      const [b, g, m, k, s, botRows] = await Promise.all([
         supabase.from("bots").select("id", { count: "exact", head: true }).eq("owner_id", user.id),
         supabase.from("telegram_groups").select("id", { count: "exact", head: true }).eq("owner_id", user.id),
         supabase.from("bot_messages").select("id", { count: "exact", head: true }).eq("owner_id", user.id),
         supabase.from("knowledge_sources").select("id", { count: "exact", head: true }).eq("owner_id", user.id),
         supabase.from("subscriptions").select("plan").eq("user_id", user.id).maybeSingle(),
-        supabase.from("bots").select("anti_spam_enabled, anti_flood_enabled").eq("owner_id", user.id),
+        supabase.from("bots").select("id, telegram_bot_token, welcome_message, banned_words").eq("owner_id", user.id),
       ]);
 
       setStats({ bots: b.count ?? 0, groups: g.count ?? 0, messages: m.count ?? 0, knowledge: k.count ?? 0 });
       if (s.data?.plan) setPlan(s.data.plan);
-
-      const spam = (botsData.data || []).filter(b => b.anti_spam_enabled).length;
-      const flood = (botsData.data || []).filter(b => b.anti_flood_enabled).length;
-      setSecurity({ spam, flood, total: botsData.data?.length || 0 });
+      setBotSetup(botRows.data ?? []);
     })();
   }, [user]);
 
@@ -38,6 +42,41 @@ export default function DashboardHome() {
     { icon: BookOpen, label: "Knowledge sources", value: stats.knowledge, to: "/dashboard/knowledge" },
     { icon: MessageSquare, label: "Messages logged", value: stats.messages, to: "/dashboard/messages" },
   ];
+
+  const hasBots = stats.bots > 0;
+  const botsWithToken = botSetup.filter((b) => !!b.telegram_bot_token).length;
+  const botsWithWelcome = botSetup.filter((b) => !!b.welcome_message).length;
+  const botsWithWordSafety = botSetup.filter((b) => (b.banned_words?.length ?? 0) > 0).length;
+
+  const deskChecks = useMemo(
+    () => [
+      {
+        label: "Bot token connected",
+        done: hasBots && botsWithToken === stats.bots,
+        detail: hasBots ? `${botsWithToken}/${stats.bots} bots connected` : "Create your first bot",
+        to: "/dashboard/bots",
+      },
+      {
+        label: "Groups linked",
+        done: stats.groups > 0,
+        detail: stats.groups > 0 ? `${stats.groups} group${stats.groups > 1 ? "s" : ""} linked` : "No Telegram groups connected",
+        to: "/dashboard/groups",
+      },
+      {
+        label: "Knowledge uploaded",
+        done: stats.knowledge > 0,
+        detail: stats.knowledge > 0 ? `${stats.knowledge} source${stats.knowledge > 1 ? "s" : ""} ready` : "No docs/URLs indexed",
+        to: "/dashboard/knowledge",
+      },
+      {
+        label: "Welcome + moderation baseline",
+        done: hasBots && botsWithWelcome === stats.bots && botsWithWordSafety === stats.bots,
+        detail: hasBots ? `Welcome: ${botsWithWelcome}/${stats.bots}, banned words: ${botsWithWordSafety}/${stats.bots}` : "Set this after creating a bot",
+        to: "/dashboard/bots",
+      },
+    ],
+    [hasBots, botsWithToken, stats.bots, stats.groups, stats.knowledge, botsWithWelcome, botsWithWordSafety]
+  );
 
   return (
     <DashboardLayout>
@@ -60,69 +99,51 @@ export default function DashboardHome() {
         ))}
       </div>
 
-      <div className="mt-12 rounded-lg border border-border bg-gradient-warm p-8">
-        <h2 className="font-display text-2xl text-ink">Get your first bot live</h2>
-        <p className="text-ink-soft mt-2 max-w-xl text-sm">
-          Create a bot in Telegram with @BotFather, then paste the token here. KADE handles the rest.
-        </p>
-        <Link to="/dashboard/bots" className="inline-block mt-4 text-sm text-primary font-medium hover:underline">
-          Go to Bots →
+      {!hasBots && (
+        <div className="mt-12 rounded-lg border border-border bg-gradient-warm p-8">
+          <h2 className="font-display text-2xl text-ink">Get your first bot live</h2>
+          <p className="text-ink-soft mt-2 max-w-xl text-sm">Create a bot in Telegram with @BotFather, then paste the token here. KADE handles the rest.</p>
+          <Link to="/dashboard/bots" className="inline-block mt-4 text-sm text-primary font-medium hover:underline">Go to Bots →</Link>
+        </div>
+      )}
+
+      <div className="mt-8 rounded-lg border border-border bg-card p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Shield className="h-5 w-5 text-primary" />
+          <h3 className="font-display text-xl text-ink">Operations desk</h3>
+        </div>
+        <div className="grid md:grid-cols-2 gap-3">
+          {deskChecks.map((check) => (
+            <Link key={check.label} to={check.to} className="rounded-md border border-border p-4 hover:bg-muted/40 transition">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-ink">{check.label}</span>
+                {check.done ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <AlertTriangle className="h-4 w-4 text-amber-600" />}
+              </div>
+              <p className="text-xs text-ink-soft mt-2">{check.detail}</p>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-8 rounded-lg border border-border bg-card p-6">
+        <h3 className="font-display text-xl text-ink mb-4">Quick actions</h3>
+        <div className="grid md:grid-cols-3 gap-4">
+          <Link to="/dashboard/bots" className="rounded-md border border-border p-4 hover:bg-muted/40 transition">
+            <div className="flex items-center gap-2 text-ink"><PlusCircle className="h-4 w-4 text-primary" /> Bot setup & moderation</div>
+            <div className="text-sm text-ink-soft mt-2">Configure token, tone, house rules, anti-flood, anti-spam, and banned words.</div>
+          </Link>
+          <Link to="/dashboard/knowledge" className="rounded-md border border-border p-4 hover:bg-muted/40 transition">
+            <div className="flex items-center gap-2 text-ink"><Sparkles className="h-4 w-4 text-primary" /> Knowledge & persona</div>
+            <div className="text-sm text-ink-soft mt-2">Add URLs/files and shape response quality with richer context.</div>
+          </Link>
+          <Link to="/dashboard/settings" className="rounded-md border border-border p-4 hover:bg-muted/40 transition">
+            <div className="flex items-center gap-2 text-ink"><Settings className="h-4 w-4 text-primary" /> Workspace settings</div>
+            <div className="text-sm text-ink-soft mt-2">Update workspace defaults and owner preferences.</div>
+          </Link>
+        </div>
+        <Link to="/dashboard/messages" className="inline-flex items-center gap-2 text-primary text-sm font-medium mt-5 hover:underline">
+          Open message activity <ArrowRight className="h-4 w-4" />
         </Link>
-      </div>
-
-      <div className="mt-8 grid md:grid-cols-3 gap-4">
-        <div className="border border-border bg-card rounded-lg p-5 flex items-center gap-4">
-          <div className={`p-2 rounded-full ${security.spam === security.total && security.total > 0 ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"}`}>
-            {security.spam === security.total && security.total > 0 ? <ShieldCheck className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
-          </div>
-          <div>
-            <div className="text-xs uppercase tracking-widest text-ink-soft">Anti-Spam</div>
-            <div className="font-display text-xl text-ink">{security.spam}/{security.total} bots</div>
-          </div>
-        </div>
-        <div className="border border-border bg-card rounded-lg p-5 flex items-center gap-4">
-          <div className={`p-2 rounded-full ${security.flood === security.total && security.total > 0 ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"}`}>
-            {security.flood === security.total && security.total > 0 ? <ShieldCheck className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
-          </div>
-          <div>
-            <div className="text-xs uppercase tracking-widest text-ink-soft">Anti-Flood</div>
-            <div className="font-display text-xl text-ink">{security.flood}/{security.total} bots</div>
-          </div>
-        </div>
-        <div className="border border-border bg-card rounded-lg p-5 flex items-center gap-4">
-          <div className="p-2 rounded-full bg-blue-100 text-blue-600">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-xs uppercase tracking-widest text-ink-soft">AI Protection</div>
-            <div className="font-display text-xl text-ink">Active</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-8 grid md:grid-cols-2 gap-8">
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h3 className="font-display text-xl text-ink mb-4">Owner DM commands</h3>
-          <ul className="space-y-2 text-sm text-ink-soft font-mono">
-            <li>/settone &lt;tone&gt;</li>
-            <li>/setpersona &lt;description&gt;</li>
-            <li>/addknow &lt;text&gt;</li>
-            <li>/addurl &lt;url&gt;</li>
-            <li>/modon | /modoff</li>
-            <li>/banword &lt;word&gt;</li>
-          </ul>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h3 className="font-display text-xl text-ink mb-4">Group commands</h3>
-          <ul className="space-y-2 text-sm text-ink-soft font-mono">
-            <li>/ban (reply to user)</li>
-            <li>/kick (reply to user)</li>
-            <li>/mute (reply to user)</li>
-            <li>/warn (reply to user)</li>
-            <li>/del (reply to user)</li>
-            <li>/pin (reply to user)</li>
-          </ul>
-        </div>
       </div>
     </DashboardLayout>
   );
